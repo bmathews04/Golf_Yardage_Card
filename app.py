@@ -232,6 +232,15 @@ div[data-testid="stTabs"] button[aria-selected="false"]{
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+/* 4-wide wedge grid (Choke, 75, 50, 25) */
+.wgrid.wgrid4{
+  grid-template-columns: repeat(4, 1fr) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ---------------------------
 # Config loading
 # ---------------------------
@@ -439,8 +448,9 @@ with tab_wedges:
     if not wedge_labels:
         wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
 
-    scheme = ["100%", "Choke-down", "75%", "50%", "25%"]
-    pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00}
+    # Remove 100% tile: show only partials (Choke, 75, 50, 25)
+    scheme = ["Choke-down", "75%", "50%", "25%"]
+    pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80}
     lbl_map = {"Choke-down": "Choke"}
 
     def wedge_values(full_carry: float):
@@ -462,7 +472,7 @@ with tab_wedges:
     wedge_vals.sort(key=lambda x: x[3], reverse=True)
     wedge_labels_sorted = [x[0] for x in wedge_vals]
 
-    # Gap to next wedge
+    # Gap to next wedge (based on full carry)
     wedge_gap_map = {}
     for i, (label, carry_full, total_full, _) in enumerate(wedge_vals):
         if carry_full is None:
@@ -484,6 +494,8 @@ with tab_wedges:
         if carry_full is None:
             shown = "—"
             sub = "No model"
+
+            # 4-wide grid (no 100% tile)
             cells = []
             for k in scheme:
                 k2 = lbl_map.get(k, k)
@@ -491,7 +503,7 @@ with tab_wedges:
                     f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">—</div>'
                     f'<div class="wbarwrap"><div class="wbarfill" style="width:0%;"></div></div></div>'
                 )
-            grid_html = f'<div class="wgrid">{"".join(cells)}</div>'
+            grid_html = f'<div class="wgrid wgrid4">{"".join(cells)}</div>'
         else:
             shown = f"{carry_full:.0f} / {total_full:.0f}"
             sub = "Full (Carry / Total)"
@@ -501,13 +513,16 @@ with tab_wedges:
             for k in scheme:
                 k2 = lbl_map.get(k, k)
                 v = float(vals[k])
+
+                # mini-bar relative to FULL carry (header)
                 pct = clamp01(v / carry_full) if carry_full else 0.0
                 cells.append(
                     f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">{v:.0f}</div>'
                     f'<div class="wbarwrap"><div class="wbarfill" style="width:{pct*100:.0f}%;"></div></div></div>'
                 )
-            grid_html = f'<div class="wgrid">{"".join(cells)}</div>'
+            grid_html = f'<div class="wgrid wgrid4">{"".join(cells)}</div>'
 
+        # full-carry bar uses max_carry scaling
         fill = (carry_full / max_carry) if (carry_full is not None and max_carry) else 0.0
         gap_html = f'<div class="gapline"><span class="gappill">{gap_text}</span></div>' if gap_text else ""
 
@@ -527,6 +542,7 @@ with tab_wedges:
             unsafe_allow_html=True
         )
 
+    # Render two-up
     for i in range(0, len(wedge_labels_sorted), 2):
         left, right = st.columns(2, gap="small")
         for col, label in zip([left, right], wedge_labels_sorted[i:i+2]):
