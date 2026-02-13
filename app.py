@@ -6,11 +6,106 @@ from src.catalog import build_full_catalog
 from src.estimates import (
     Anchor, anchors_by_label,
     estimate_club_speed, estimate_carry_from_speed,
-    responsiveness_exponent, scaled_carry, rollout_for, category_of, parse_loft
+    responsiveness_exponent, scaled_carry, rollout_for, category_of
 )
 
+# ---------------------------
+# Page config (MUST be first Streamlit call)
+# ---------------------------
 st.set_page_config(page_title="Yardage Card", layout="wide")
 
+# ---------------------------
+# Augusta / Masters-inspired theme (CSS)
+# ---------------------------
+st.markdown("""
+<style>
+/* Augusta-inspired palette */
+:root{
+  --augusta-green: #006747;
+  --augusta-green-dark: #004c35;
+  --azalea-pink: #e86aa3;
+  --gold: #d4af37;
+  --cream: #fbf7ef;
+  --ink: #10201a;
+  --muted: rgba(16,32,26,0.65);
+  --line: rgba(16,32,26,0.12);
+}
+
+/* tighter overall layout + cream background */
+.stApp {
+  background: linear-gradient(180deg, var(--cream) 0%, #ffffff 65%);
+}
+.block-container {
+  padding-top: 0.65rem;
+  padding-bottom: 2.5rem;
+  max-width: 900px;
+}
+h1 { margin-bottom: 0.2rem; color: var(--ink); }
+[data-testid="stCaptionContainer"] { margin-bottom: 0.6rem; color: var(--muted); }
+
+/* remove extra top whitespace on mobile */
+@media (max-width: 768px){
+  .block-container { padding-left: 0.75rem; padding-right: 0.75rem; }
+}
+
+/* expander */
+details summary { font-size: 0.95rem; color: var(--augusta-green); }
+
+/* segmented control + buttons */
+div[role="radiogroup"] label {
+  border-radius: 999px !important;
+}
+button[kind="secondary"]{
+  border-radius: 999px !important;
+}
+
+/* input labels */
+label, .stMarkdown { color: var(--ink); }
+
+/* divider */
+hr { border-color: var(--line) !important; }
+
+/* Cards */
+.ycard {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--augusta-green);
+  background: rgba(255,255,255,0.75);
+  backdrop-filter: blur(4px);
+  border-radius: 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+}
+.yrow { display:flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.yclub { font-size: 1.0rem; font-weight: 800; color: var(--ink); }
+.yvals { font-size: 1.18rem; font-weight: 900; color: var(--augusta-green-dark); }
+.ysub  { opacity: 0.75; font-size: 0.80rem; margin-top: 2px; color: var(--muted); }
+
+/* Section headers with a subtle azalea accent */
+.section-title{
+  display:flex; align-items:center; gap:10px;
+}
+.section-dot{
+  width:10px; height:10px; border-radius:999px;
+  background: var(--azalea-pink);
+  box-shadow: 0 0 0 3px rgba(232,106,163,0.20);
+}
+
+/* Wedge grid */
+.wedge-header{
+  font-weight: 900;
+  color: var(--augusta-green-dark);
+}
+.wedge-cell{
+  font-weight: 800;
+  color: var(--ink);
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------------------
+# Config loading
+# ---------------------------
 CFG_PATH = Path("data/config.yaml")
 
 @st.cache_data
@@ -19,19 +114,6 @@ def load_cfg():
         return yaml.safe_load(f)
 
 cfg = load_cfg()
-
-# --- CSS for phone-friendly cards ---
-st.markdown("""
-<style>
-.block-container { padding-top: 0.8rem; padding-bottom: 4rem; }
-div[data-testid="stMetric"] { border-radius: 16px; padding: 10px 12px; }
-.ycard { padding: 14px 14px; border: 1px solid rgba(255,255,255,0.10); border-radius: 18px; margin-bottom: 10px; }
-.yrow { display:flex; justify-content: space-between; gap: 10px; }
-.yclub { font-size: 1.05rem; font-weight: 700; }
-.yvals { font-size: 1.15rem; font-weight: 800; }
-.ysub { opacity: 0.75; font-size: 0.85rem; margin-top: 2px; }
-</style>
-""", unsafe_allow_html=True)
 
 baseline_chs0 = float(cfg["baseline"]["driver_chs_mph"])
 p_shape = float(cfg["model"]["exponent_shape_p"])
@@ -57,40 +139,48 @@ anchor_map = anchors_by_label(anchors)
 
 catalog = build_full_catalog()
 
-st.title("⛳ Yardage Card")
+# ---------------------------
+# Title
+# ---------------------------
+st.markdown('<div class="section-title"><div class="section-dot"></div><h1 style="margin:0;">⛳ Yardage Card</h1></div>', unsafe_allow_html=True)
 st.caption("Tournament-mode: your modeled yardages only (no GPS, no conditions, no recommendations).")
 
-# Inputs row
-c1, c2, c3 = st.columns([2, 2, 2], vertical_alignment="center")
-with c1:
-    chs_today = st.slider("Driver CHS (mph)", 90, 135, int(baseline_chs0), 1)
-with c2:
-    view = st.segmented_control("View", ["Carry", "Carry + Total"], default="Carry")
-with c3:
-    offset = st.number_input("Manual ± (yd)", -25, 25, 0, 1)
+# ---------------------------
+# Controls (mobile-first)
+# ---------------------------
+# Row 1: CHS slider full width
+chs_today = st.slider("Driver CHS (mph)", 90, 135, int(baseline_chs0), 1)
 
-# Bag preset
-p1, p2 = st.columns([2, 3], vertical_alignment="center")
-with p1:
+# Row 2: compact controls
+c1, c2, c3 = st.columns([1.3, 0.9, 1.8], vertical_alignment="center")
+with c1:
+    view = st.segmented_control("View", ["Carry", "Carry + Total"], default="Carry")
+with c2:
+    offset = st.number_input("± (yd)", -25, 25, 0, 1)
+with c3:
     preset_names = list(presets.keys()) if presets else ["My Bag"]
-    preset = st.selectbox("Preset", preset_names, index=preset_names.index(default_preset) if default_preset in preset_names else 0)
+    preset_index = preset_names.index(default_preset) if default_preset in preset_names else 0
+    preset = st.selectbox("Preset", preset_names, index=preset_index)
     bag_default = presets.get(preset, default_bag)
-with p2:
-    with st.expander("Customize clubs shown"):
-        bag = st.multiselect("Clubs", options=sorted(set(catalog + bag_default)), default=bag_default)
-if "bag" not in locals():
+
+with st.expander("Customize clubs shown"):
+    bag = st.multiselect("Clubs", options=sorted(set(catalog + bag_default)), default=bag_default)
+
+if not bag:
     bag = bag_default
 
 st.divider()
 
-# Helper: compute baseline for any label
+# ---------------------------
+# Helper functions
+# ---------------------------
 def compute_baseline(label: str):
     # If label is exactly an anchor, use it
     if label in anchor_map:
         a = anchor_map[label]
         return a.club_speed_mph, a.carry_yd
 
-    # Allow "3H" etc by estimating speed and then carry from fitted curve
+    # Otherwise estimate club speed then infer carry from fitted curve
     spd = estimate_club_speed(label, anchor_map)
     if spd is None:
         return None, None
@@ -108,25 +198,7 @@ def compute_today(label: str):
     total = carry + rollout
     return carry, total
 
-# --- Clubs section (cards) ---
-st.subheader("Clubs")
-
-for label in bag:
-    if label == "Putter":
-        continue
-    cat = category_of(label)
-    if cat == "wedge":
-        # show wedges in wedge section only
-        continue
-
-    carry, total = compute_today(label)
-    if carry is None:
-        shown = "—"
-        sub = "No model"
-    else:
-        shown = f"{carry:.0f}" if view == "Carry" else f"{carry:.0f} / {total:.0f}"
-        sub = "Carry" if view == "Carry" else "Carry / Total"
-
+def render_card(label: str, shown: str, sub: str):
     st.markdown(
         f"""
         <div class="ycard">
@@ -140,42 +212,62 @@ for label in bag:
         unsafe_allow_html=True
     )
 
-st.divider()
+# ---------------------------
+# Tabs (Clubs / Wedges)
+# ---------------------------
+tab_clubs, tab_wedges = st.tabs(["Clubs", "Wedges"])
 
-# --- Wedges section ---
-st.subheader("Wedges")
+with tab_clubs:
+    st.markdown('<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Clubs</h3></div>', unsafe_allow_html=True)
 
-# Build wedge list from whatever wedges exist in your bag; if none, show common defaults
-wedge_labels = [x for x in bag if category_of(x) == "wedge"]
-if not wedge_labels:
-    wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
+    clubs_only = [x for x in bag if category_of(x) not in ("wedge", "putter")]
 
-partials_cfg = wedges_cfg.get("partials", {})
-scheme = partials_cfg.get("scheme", ["25%", "50%", "75%", "Choke-down", "100%"])
-pct_map = partials_cfg.get("percent_map", {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00})
+    # Two-up grid for phone speed (less scrolling)
+    for i in range(0, len(clubs_only), 2):
+        left, right = st.columns(2, gap="small")
 
-# Render a phone-friendly wedge table using columns
-header = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
-header[0].markdown("**Wedge**")
-for i, k in enumerate(scheme, start=1):
-    header[i].markdown(f"**{k}**")
-
-for w in wedge_labels:
-    carry_full, total_full = compute_today(w)  # full swing modeled
-    if carry_full is None:
-        vals = ["—"] * len(scheme)
-    else:
-        # Build partials as fractions of the (modeled) full carry
-        vals = []
-        for k in scheme:
-            if k == "Choke-down":
-                # choke-down is full swing carry - configured subtract
-                vals.append(f"{(carry_full - choke_sub):.0f}")
+        for col, label in zip([left, right], clubs_only[i:i+2]):
+            carry, total = compute_today(label)
+            if carry is None:
+                shown, sub = "—", "No model"
             else:
-                frac = float(pct_map.get(k, 1.0))
-                vals.append(f"{(carry_full * frac):.0f}")
+                shown = f"{carry:.0f}" if view == "Carry" else f"{carry:.0f} / {total:.0f}"
+                sub = "Carry" if view == "Carry" else "Carry / Total"
+            with col:
+                render_card(label, shown, sub)
 
-    row = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
-    row[0].write(w)
-    for i, v in enumerate(vals, start=1):
-        row[i].write(v)
+with tab_wedges:
+    st.markdown('<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Wedges</h3></div>', unsafe_allow_html=True)
+
+    wedge_labels = [x for x in bag if category_of(x) == "wedge"]
+    if not wedge_labels:
+        wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
+
+    partials_cfg = wedges_cfg.get("partials", {})
+    scheme = partials_cfg.get("scheme", ["25%", "50%", "75%", "Choke-down", "100%"])
+    pct_map = partials_cfg.get("percent_map", {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00})
+
+    # Header
+    header = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
+    header[0].markdown('<span class="wedge-header">Wedge</span>', unsafe_allow_html=True)
+    for idx, k in enumerate(scheme, start=1):
+        header[idx].markdown(f'<span class="wedge-header">{k}</span>', unsafe_allow_html=True)
+
+    # Rows
+    for w in wedge_labels:
+        carry_full, _ = compute_today(w)
+        if carry_full is None:
+            vals = ["—"] * len(scheme)
+        else:
+            vals = [
+                f"{(carry_full * float(pct_map.get('25%', 0.40))):.0f}",
+                f"{(carry_full * float(pct_map.get('50%', 0.60))):.0f}",
+                f"{(carry_full * float(pct_map.get('75%', 0.80))):.0f}",
+                f"{(carry_full - choke_sub):.0f}",
+                f"{carry_full:.0f}",
+            ]
+
+        row = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
+        row[0].write(w)
+        for j, v in enumerate(vals, start=1):
+            row[j].markdown(f'<span class="wedge-cell">{v}</span>', unsafe_allow_html=True)
