@@ -271,12 +271,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-/* =========================
-   Augusta Classy – DROP-IN
-   Paste this at the END of your existing <style> block
-   ========================= */
-
-/* Tabs: pill active state + subtle hover */
 div[data-testid="stTabs"] button{
   border-radius: 999px !important;
   padding: 6px 12px !important;
