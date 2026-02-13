@@ -157,14 +157,12 @@ catalog = build_full_catalog()
 # ---------------------------
 # Title
 # ---------------------------
-st.markdown('<div class="section-title"><div class="section-dot"></div><h1 style="margin:0;">⛳ Yardage Card</h1></div>', unsafe_allow_html=True)
-st.caption("Tournament-mode: your modeled yardages only (no GPS, no conditions, no recommendations).")
-
+st.markdown('<div class="section-title"><div class="section-dot"></div><h1 style="margin:0;">Yardage Card</h1></div>', unsafe_allow_html=True)
 # ---------------------------
 # Controls (mobile-first)
 # ---------------------------
 # Row 1: CHS slider full width
-chs_today = st.slider("Driver CHS (mph)", 90, 135, int(baseline_chs0), 1)
+chs_today = st.slider("Driver CHS (mph)", 90, 130, int(baseline_chs0), 1)
 
 # Row 2: compact controls
 c1, c2, c3 = st.columns([1.3, 0.9, 1.8], vertical_alignment="center")
