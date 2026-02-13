@@ -476,13 +476,21 @@ with tab_wedges:
     pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80}
     lbl_map = {"Choke-down": "Choke"}
 
+    PARTIAL_K = {
+        "75%": 0.92,
+        "50%": 0.85,
+        "25%": 0.78,
+    }
+
     def wedge_values(full_carry: float):
         vals = {}
         for k in scheme:
             if k == "Choke-down":
-                vals[k] = full_carry - choke_sub
+                vals[k] = max(0.0, full_carry - choke_sub)
             else:
-                vals[k] = full_carry * float(pct_map[k])
+                pct = float(pct_map[k])                 # your “feel map”
+                exp = float(PARTIAL_K.get(k, 0.85))     # non-linear boost
+                vals[k] = full_carry * (pct ** exp)
         return vals
 
     # Sort wedges by modeled full carry (desc)
