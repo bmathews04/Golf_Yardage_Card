@@ -14,6 +14,9 @@ from src.estimates import (
 # ---------------------------
 st.set_page_config(page_title="Yardage Card", layout="wide")
 
+# ---------------------------
+# Top whitespace kill + hide Streamlit chrome
+# ---------------------------
 st.markdown("""
 <style>
 /* Kill the extra whitespace at the very top */
@@ -66,14 +69,6 @@ h1 { margin-bottom: 0.2rem; color: var(--ink); }
 /* expander */
 details summary { font-size: 0.95rem; color: var(--augusta-green); }
 
-/* segmented control + buttons */
-div[role="radiogroup"] label {
-  border-radius: 999px !important;
-}
-button[kind="secondary"]{
-  border-radius: 999px !important;
-}
-
 /* input labels */
 label, .stMarkdown { color: var(--ink); }
 
@@ -106,20 +101,6 @@ hr { border-color: var(--line) !important; }
   box-shadow: 0 0 0 3px rgba(232,106,163,0.20);
 }
 
-/* Wedge grid */
-.wedge-header{
-  font-weight: 900;
-  color: var(--augusta-green-dark);
-}
-.wedge-cell{
-  font-weight: 800;
-  color: var(--ink);
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
 /* Wedge cards: mini grid inside same card style */
 .wgrid {
   display: grid;
@@ -146,12 +127,9 @@ st.markdown("""
   font-weight: 900;
   color: #004c35; /* augusta green dark */
 }
-
-/* Slightly tighter card for wedges */
 .ycard.wedge { padding: 10px 12px; }
 </style>
 """, unsafe_allow_html=True)
-
 
 # ---------------------------
 # Config loading
@@ -193,19 +171,19 @@ catalog = build_full_catalog()
 # Title
 # ---------------------------
 st.markdown('<div class="section-title"><div class="section-dot"></div><h1 style="margin:0;">Yardage Card</h1></div>', unsafe_allow_html=True)
+st.caption("Tournament-mode: your modeled yardages only (no GPS, no conditions, no recommendations).")
+
 # ---------------------------
 # Controls (mobile-first)
 # ---------------------------
-# Row 1: CHS slider full width
-chs_today = st.slider("Driver CHS (mph)", 90, 130, 105, 1)
+# Row 1: CHS slider full width (default 105)
+chs_today = st.slider("Driver CHS (mph)", 90, 135, 105, 1)
 
-# Row 2: compact controls
-c1, c2, c3 = st.columns([1.3, 0.9, 1.8], vertical_alignment="center")
+# Row 2: compact controls (NO view toggle; always Carry + Total)
+c1, c2 = st.columns([0.9, 1.8], vertical_alignment="center")
 with c1:
-    view = st.segmented_control("View", ["Carry", "Carry + Total"], default="Carry + Total")
-with c2:
     offset = st.number_input("± (yd)", -25, 25, 0, 1)
-with c3:
+with c2:
     preset_names = list(presets.keys()) if presets else ["My Bag"]
     preset_index = preset_names.index(default_preset) if default_preset in preset_names else 0
     preset = st.selectbox("Preset", preset_names, index=preset_index)
@@ -280,8 +258,8 @@ with tab_clubs:
             if carry is None:
                 shown, sub = "—", "No model"
             else:
-                shown = f"{carry:.0f}" if view == "Carry" else f"{carry:.0f} / {total:.0f}"
-                sub = "Carry" if view == "Carry" else "Carry / Total"
+                shown = f"{carry:.0f} / {total:.0f}"
+                sub = "Carry / Total"
             with col:
                 render_card(label, shown, sub)
 
@@ -293,7 +271,7 @@ with tab_wedges:
         wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
 
     # Order left-to-right: 100% -> 25%
-    scheme = ["100%","Choke-down", "75%", "50%", "25%"]
+    scheme = ["100%", "Choke-down", "75%", "50%", "25%"]
     pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00}
 
     def wedge_values(full_carry: float):
@@ -306,7 +284,7 @@ with tab_wedges:
         return vals
 
     def render_wedge_card(label: str):
-        carry_full, _ = compute_today(label)
+        carry_full, total_full = compute_today(label)
         if carry_full is None:
             shown = "—"
             sub = "No model"
@@ -320,15 +298,17 @@ with tab_wedges:
               </div>
             """
         else:
-            shown = f"{carry_full:.0f}"
-            sub = "Full carry"
+            # Keep the header value consistent with clubs: Carry / Total
+            shown = f"{carry_full:.0f} / {total_full:.0f}"
+            sub = "Full (Carry / Total)"
             vals = wedge_values(carry_full)
-            # Slightly shorter label for choke-down inside the cell
             lbl_map = {"Choke-down": "Choke"}
             cells = []
             for k in scheme:
                 k2 = lbl_map.get(k, k)
-                cells.append(f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">{vals[k]:.0f}</div></div>')
+                cells.append(
+                    f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">{vals[k]:.0f}</div></div>'
+                )
             grid_html = f'<div class="wgrid">{"".join(cells)}</div>'
 
         st.markdown(
