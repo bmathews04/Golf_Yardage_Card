@@ -51,7 +51,7 @@ st.markdown("""
   background: linear-gradient(180deg, var(--cream) 0%, #ffffff 65%);
 }
 .block-container {
-  padding-top: 0.65rem;
+  padding-top: 0.15rem !important;
   padding-bottom: 2.5rem;
   max-width: 900px;
 }
