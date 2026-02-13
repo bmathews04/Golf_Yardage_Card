@@ -257,29 +257,29 @@ with tab_wedges:
     if not wedge_labels:
         wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
 
-    partials_cfg = wedges_cfg.get("partials", {})
-    scheme = partials_cfg.get("scheme", ["25%", "50%", "75%", "Choke-down", "100%"])
-    pct_map = partials_cfg.get("percent_map", {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00})
+# Reverse order: 100% → 25%
+    scheme = ["100%", "Choke-down", "75%", "50%", "25%"]
+    pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00}
 
-    # Header
+# Header
     header = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
     header[0].markdown('<span class="wedge-header">Wedge</span>', unsafe_allow_html=True)
     for idx, k in enumerate(scheme, start=1):
         header[idx].markdown(f'<span class="wedge-header">{k}</span>', unsafe_allow_html=True)
 
-    # Rows
+# Rows
     for w in wedge_labels:
         carry_full, _ = compute_today(w)
         if carry_full is None:
             vals = ["—"] * len(scheme)
         else:
-            vals = [
-                f"{(carry_full * float(pct_map.get('25%', 0.40))):.0f}",
-                f"{(carry_full * float(pct_map.get('50%', 0.60))):.0f}",
-                f"{(carry_full * float(pct_map.get('75%', 0.80))):.0f}",
-                f"{(carry_full - choke_sub):.0f}",
-                f"{carry_full:.0f}",
-            ]
+            vals = []
+            for k in scheme:
+                if k == "Choke-down":
+                    vals.append(f"{(carry_full - choke_sub):.0f}")
+                else:
+                    frac = float(pct_map.get(k, 1.0))
+                    vals.append(f"{(carry_full * frac):.0f}")
 
         row = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
         row[0].write(w)
