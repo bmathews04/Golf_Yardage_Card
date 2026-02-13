@@ -166,9 +166,9 @@ hr { border-color: var(--line) !important; }
 .yclub { font-size: 1.0rem; font-weight: 800; color: var(--ink); }
 .ycloft{
   font-size: 0.78rem;
-  font-weight: 800;
-  color: rgba(16,32,26,0.55);
-  margin-left: 8px;
+  font-weight: 700;
+  color: rgba(16,32,26,0.50);
+  margin-left: 6px;
 }
 .yvals {
   font-size: 1.18rem;
@@ -498,7 +498,7 @@ def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str
 
     loft_txt = loft_text_for(label)
     label_html = (
-        f'{label}<span class="ycloft">{loft_txt}</span>'
+        f'{label} <span class="ycloft">({loft_txt})</span>'
         if loft_txt else
         f'{label}'
     )
