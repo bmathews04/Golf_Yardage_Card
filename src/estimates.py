@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List, Tuple
 
 @dataclass
 class Anchor:
@@ -13,8 +13,8 @@ class Anchor:
 WEDGE_RE = re.compile(r"^(?P<name>PW|GW|SW|LW|Wedge)\s*\((?P<loft>\d{2})°\)$")
 IRON_RE  = re.compile(r"^(?P<num>[1-9])i$")
 WOOD_RE  = re.compile(r"^(?P<num>\d{1,2})W$")
-HYBRID_RE = re.compile(r"^(?P<num>[1-7])H$")
-UTIL_RE   = re.compile(r"^(?P<num>[1-5])U$")
+HYBRID_RE= re.compile(r"^(?P<num>[1-7])H$")
+UTIL_RE  = re.compile(r"^(?P<num>[1-5])U$")
 
 def parse_loft(label: str) -> Optional[int]:
     m = WEDGE_RE.match(label)
@@ -38,86 +38,77 @@ def category_of(label: str) -> str:
 def anchors_by_label(anchors: list[Anchor]) -> dict[str, Anchor]:
     return {a.label: a for a in anchors}
 
-# ---------------------------
-# NEW: wedge loft-based helpers (fit from your wedge anchors)
-# ---------------------------
-def _wedge_anchor_points(anchors: dict[str, Anchor]):
+# -------------------------
+# Wedge loft interpolation helpers
+# -------------------------
+def _wedge_points(anchors: dict[str, Anchor]) -> List[Tuple[int, float, float]]:
+    """
+    Returns sorted list of (loft_deg, speed_mph, carry_yd) for wedge anchors.
+    Uses Anchor.loft_deg if present; otherwise parses loft from label.
+    """
     pts = []
     for a in anchors.values():
-        if a.category == "wedge":
-            loft = a.loft_deg if a.loft_deg is not None else parse_loft(a.label)
-            if loft is not None:
-                pts.append((float(loft), float(a.club_speed_mph), float(a.carry_yd)))
+        if a.category != "wedge":
+            continue
+        loft = a.loft_deg if a.loft_deg is not None else parse_loft(a.label)
+        if loft is None:
+            continue
+        pts.append((int(loft), float(a.club_speed_mph), float(a.carry_yd)))
     pts.sort(key=lambda x: x[0])
     return pts
 
-def _fit_line(xs: list[float], ys: list[float]) -> tuple[float, float]:
-    """
-    Simple least squares fit: y = m*x + b
-    Returns (m, b). Requires len(xs) >= 2
-    """
-    n = len(xs)
-    xbar = sum(xs) / n
-    ybar = sum(ys) / n
-    num = sum((xs[i] - xbar) * (ys[i] - ybar) for i in range(n))
-    den = sum((xs[i] - xbar) ** 2 for i in range(n))
-    m = num / den if den != 0 else 0.0
-    b = ybar - m * xbar
-    return m, b
+def _interp_linear(x: float, x0: float, y0: float, x1: float, y1: float) -> float:
+    if x1 == x0:
+        return float(y0)
+    t = (x - x0) / (x1 - x0)
+    return float(y0 + t * (y1 - y0))
 
-def estimate_wedge_speed_from_loft(loft: int, anchors: dict[str, Anchor]) -> Optional[float]:
-    pts = _wedge_anchor_points(anchors)
-    if len(pts) < 2:
-        return None
-    xs = [p[0] for p in pts]
-    ys = [p[1] for p in pts]
-    m, b = _fit_line(xs, ys)
-    return m * float(loft) + b
-
-def estimate_wedge_carry_from_loft(loft: int, anchors: dict[str, Anchor]) -> Optional[float]:
+def _interp_by_loft(loft: int, pts: List[Tuple[int, float, float]], which: str) -> Optional[float]:
     """
-    Prefer wedge carry based on loft interpolation/extrapolation from wedge anchors.
+    pts = [(loft, speed, carry), ...] sorted by loft
+    which in {"speed","carry"}
+    Linear interpolate within range; linear extrapolate outside range using nearest segment.
     """
-    pts = _wedge_anchor_points(anchors)
     if len(pts) < 2:
         return None
 
-    # exact loft present
-    for L, _, C in pts:
-        if int(round(L)) == int(loft):
-            return float(C)
+    idx = 1 if which == "speed" else 2
 
-    # bracket & interpolate
-    lofts = [p[0] for p in pts]
-    carries = [p[2] for p in pts]
+    # exact match
+    for L, s, c in pts:
+        if L == loft:
+            return float(s if which == "speed" else c)
 
-    # below range -> extrapolate using first two
-    if loft <= lofts[0]:
-        x0, x1 = lofts[0], lofts[1]
-        y0, y1 = carries[0], carries[1]
-        t = (float(loft) - x0) / (x1 - x0)
-        return y0 + t * (y1 - y0)
+    # below range -> extrapolate using first segment
+    if loft < pts[0][0]:
+        L0, s0, c0 = pts[0]
+        L1, s1, c1 = pts[1]
+        y0 = s0 if idx == 1 else c0
+        y1 = s1 if idx == 1 else c1
+        return _interp_linear(loft, L0, y0, L1, y1)
 
-    # above range -> extrapolate using last two
-    if loft >= lofts[-1]:
-        x0, x1 = lofts[-2], lofts[-1]
-        y0, y1 = carries[-2], carries[-1]
-        t = (float(loft) - x0) / (x1 - x0)
-        return y0 + t * (y1 - y0)
+    # above range -> extrapolate using last segment
+    if loft > pts[-1][0]:
+        L0, s0, c0 = pts[-2]
+        L1, s1, c1 = pts[-1]
+        y0 = s0 if idx == 1 else c0
+        y1 = s1 if idx == 1 else c1
+        return _interp_linear(loft, L0, y0, L1, y1)
 
-    # inside range -> interpolate
-    for i in range(len(lofts) - 1):
-        if lofts[i] <= loft <= lofts[i + 1]:
-            x0, x1 = lofts[i], lofts[i + 1]
-            y0, y1 = carries[i], carries[i + 1]
-            t = (float(loft) - x0) / (x1 - x0)
-            return y0 + t * (y1 - y0)
+    # inside range -> interpolate between neighbors
+    for i in range(1, len(pts)):
+        L0, s0, c0 = pts[i - 1]
+        L1, s1, c1 = pts[i]
+        if L0 < loft < L1:
+            y0 = s0 if idx == 1 else c0
+            y1 = s1 if idx == 1 else c1
+            return _interp_linear(loft, L0, y0, L1, y1)
 
     return None
 
-# ---------------------------
-# Your existing speed estimator (modified wedge section)
-# ---------------------------
+# -------------------------
+# Estimation
+# -------------------------
 def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[float]:
     # Direct anchor
     if label in anchors:
@@ -126,16 +117,18 @@ def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[floa
     cat = category_of(label)
 
     # Hybrids
-    if HYBRID_RE.match(label):
-        n = int(HYBRID_RE.match(label).group("num"))
+    m = HYBRID_RE.match(label)
+    if m:
+        n = int(m.group("num"))
         base = anchors.get("Hybrid")
         if not base:
             return None
         return base.club_speed_mph - (n - 3) * 1.5
 
     # Utilities
-    if UTIL_RE.match(label):
-        n = int(UTIL_RE.match(label).group("num"))
+    m = UTIL_RE.match(label)
+    if m:
+        n = int(m.group("num"))
         h = anchors.get("Hybrid")
         i3 = anchors.get("3i")
         if not (h and i3):
@@ -144,8 +137,9 @@ def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[floa
         return base_2u - (n - 2) * 1.2
 
     # Irons
-    if IRON_RE.match(label):
-        n = int(IRON_RE.match(label).group("num"))
+    m = IRON_RE.match(label)
+    if m:
+        n = int(m.group("num"))
         known = {int(k[0]): anchors[k].club_speed_mph for k in anchors if re.match(r"^[3-9]i$", k)}
         if not known:
             return None
@@ -162,8 +156,9 @@ def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[floa
         return (d.club_speed_mph + w3.club_speed_mph) / 2
 
     # Woods
-    if WOOD_RE.match(label):
-        n = int(WOOD_RE.match(label).group("num"))
+    m = WOOD_RE.match(label)
+    if m:
+        n = int(m.group("num"))
         w3 = anchors.get("3W")
         if not w3:
             return None
@@ -173,40 +168,47 @@ def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[floa
     if label == "Driver":
         return anchors.get("Driver").club_speed_mph if anchors.get("Driver") else None
 
-    # ✅ WEDGES: fit loft -> speed from your wedge anchors (Option A)
+    # ✅ Wedges: loft-based speed interpolation (more realistic than a fixed 0.5 mph/deg)
     if cat == "wedge":
         loft = parse_loft(label)
         if loft is None:
             return None
-        spd = estimate_wedge_speed_from_loft(loft, anchors)
-        return float(spd) if spd is not None else None
-
-    if cat == "putter":
-        return None
+        pts = _wedge_points(anchors)
+        spd = _interp_by_loft(loft, pts, which="speed")
+        return None if spd is None else float(spd)
 
     return None
 
-# ---------------------------
-# Carry estimation
-# ---------------------------
 def estimate_carry_from_speed(speed_mph: float, anchors: list[Anchor]) -> float:
     """
-    Fit a smooth-ish power law carry ≈ a * speed^b using anchors.
-    (Used mostly for clubs without direct carry anchors.)
+    Global speed->carry power law (kept for non-wedge fallback).
     """
     pts = [(a.club_speed_mph, a.carry_yd) for a in anchors if a.category in ("wood", "hybrid", "iron", "wedge")]
-
     import math
     xs = [math.log(x) for x, _ in pts]
     ys = [math.log(y) for _, y in pts]
     n = len(xs)
     xbar = sum(xs) / n
     ybar = sum(ys) / n
-    num = sum((xs[i] - xbar) * (ys[i] - ybar) for i in range(n))
-    den = sum((xs[i] - xbar) ** 2 for i in range(n))
+    num = sum((xs[i]-xbar)*(ys[i]-ybar) for i in range(n))
+    den = sum((xs[i]-xbar)**2 for i in range(n))
     b = num / den
     a = math.exp(ybar - b * xbar)
     return a * (speed_mph ** b)
+
+def estimate_carry(label: str, speed_mph: float, anchors: dict[str, Anchor], anchors_list: list[Anchor]) -> float:
+    """
+    ✅ Wedges: loft-based carry interpolation.
+    Everyone else: global speed->carry curve.
+    """
+    if category_of(label) == "wedge":
+        loft = parse_loft(label)
+        if loft is not None:
+            pts = _wedge_points(anchors)
+            c = _interp_by_loft(loft, pts, which="carry")
+            if c is not None:
+                return float(c)
+    return float(estimate_carry_from_speed(speed_mph, anchors_list))
 
 def responsiveness_exponent(club_speed: float, driver_speed: float, p: float) -> float:
     r = club_speed / driver_speed
