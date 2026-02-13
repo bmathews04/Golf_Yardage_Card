@@ -118,6 +118,41 @@ hr { border-color: var(--line) !important; }
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+/* Wedge cards: mini grid inside same card style */
+.wgrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.wcell {
+  border: 1px solid rgba(16,32,26,0.10);
+  border-radius: 12px;
+  padding: 8px 8px;
+  background: rgba(255,255,255,0.60);
+  text-align: center;
+}
+.wlab {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: rgba(16,32,26,0.70);
+  letter-spacing: 0.02em;
+}
+.wval {
+  margin-top: 2px;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #004c35; /* augusta green dark */
+}
+
+/* Slightly tighter card for wedges */
+.ycard.wedge { padding: 10px 12px; }
+</style>
+""", unsafe_allow_html=True)
+
+
 # ---------------------------
 # Config loading
 # ---------------------------
@@ -257,31 +292,62 @@ with tab_wedges:
     if not wedge_labels:
         wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
 
-# Reverse order: 100% → 25%
+    # Order left-to-right: 100% -> 25%
     scheme = ["100%", "Choke-down", "75%", "50%", "25%"]
     pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00}
 
-# Header
-    header = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
-    header[0].markdown('<span class="wedge-header">Wedge</span>', unsafe_allow_html=True)
-    for idx, k in enumerate(scheme, start=1):
-        header[idx].markdown(f'<span class="wedge-header">{k}</span>', unsafe_allow_html=True)
+    def wedge_values(full_carry: float):
+        vals = {}
+        for k in scheme:
+            if k == "Choke-down":
+                vals[k] = full_carry - choke_sub
+            else:
+                vals[k] = full_carry * float(pct_map[k])
+        return vals
 
-# Rows
-    for w in wedge_labels:
-        carry_full, _ = compute_today(w)
+    def render_wedge_card(label: str):
+        carry_full, _ = compute_today(label)
         if carry_full is None:
-            vals = ["—"] * len(scheme)
+            shown = "—"
+            sub = "No model"
+            grid_html = """
+              <div class="wgrid">
+                <div class="wcell"><div class="wlab">100%</div><div class="wval">—</div></div>
+                <div class="wcell"><div class="wlab">Choke</div><div class="wval">—</div></div>
+                <div class="wcell"><div class="wlab">75%</div><div class="wval">—</div></div>
+                <div class="wcell"><div class="wlab">50%</div><div class="wval">—</div></div>
+                <div class="wcell"><div class="wlab">25%</div><div class="wval">—</div></div>
+              </div>
+            """
         else:
-            vals = []
+            shown = f"{carry_full:.0f}"
+            sub = "Full carry"
+            vals = wedge_values(carry_full)
+            # Slightly shorter label for choke-down inside the cell
+            lbl_map = {"Choke-down": "Choke"}
+            cells = []
             for k in scheme:
-                if k == "Choke-down":
-                    vals.append(f"{(carry_full - choke_sub):.0f}")
-                else:
-                    frac = float(pct_map.get(k, 1.0))
-                    vals.append(f"{(carry_full * frac):.0f}")
+                k2 = lbl_map.get(k, k)
+                cells.append(f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">{vals[k]:.0f}</div></div>')
+            grid_html = f'<div class="wgrid">{"".join(cells)}</div>'
 
-        row = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
-        row[0].write(w)
-        for j, v in enumerate(vals, start=1):
-            row[j].markdown(f'<span class="wedge-cell">{v}</span>', unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div class="ycard wedge">
+              <div class="yrow">
+                <div class="yclub">{label}</div>
+                <div class="yvals">{shown}</div>
+              </div>
+              <div class="ysub">{sub}</div>
+              {grid_html}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    # Two-up layout like Clubs
+    for i in range(0, len(wedge_labels), 2):
+        left, right = st.columns(2, gap="small")
+        for col, label in zip([left, right], wedge_labels[i:i+2]):
+            with col:
+                render_wedge_card(label)
