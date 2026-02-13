@@ -387,22 +387,18 @@ with tab_clubs:
 
     clubs_only = [x for x in bag if category_of(x) not in ("wedge", "putter")]
 
+    # Build once: (label, carry, total, sort_carry)
     club_vals = []
     for label in clubs_only:
         carry, total = compute_today(label, chs_today, offset)
-        sort_carry = carry if carry is not None else -1e9
+        sort_carry = carry if carry is not None else -1e9  # no-model goes bottom
         club_vals.append((label, carry, total, sort_carry))
 
+    # Sort by carry desc (Driver -> long -> short)
     club_vals.sort(key=lambda x: x[3], reverse=True)
+    clubs_sorted = [x[0] for x in club_vals]
 
-    clubs_only_sorted = [x[0] for x in club_vals]
-
-    # compute carries in sorted order for gap labels
-    club_vals = []
-    for label in clubs_only:
-        carry, total = compute_today(label, chs_today, offset)
-        club_vals.append((label, carry, total))
-
+    # Gap to next club in the sorted list (skip no-models)
     gap_map = {}
     for i, (label, carry, total, _) in enumerate(club_vals):
         if carry is None:
@@ -418,7 +414,7 @@ with tab_clubs:
             gap = carry - nxt_carry
             gap_map[label] = f"Gap to next: +{gap:.0f} yd"
 
-# --- render in sorted order ---
+    # Render in sorted order (two-up)
     for i in range(0, len(clubs_sorted), 2):
         left, right = st.columns(2, gap="small")
         for col, label in zip([left, right], clubs_sorted[i:i+2]):
