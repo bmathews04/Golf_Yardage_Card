@@ -303,12 +303,11 @@ st.markdown(
     '<div class="section-title"><div class="section-dot"></div><h1 style="margin:0;">Yardage Card</h1></div>',
     unsafe_allow_html=True
 )
-st.caption("Tournament-mode: your modeled yardages only (no GPS, no conditions, no recommendations).")
 
 # ---------------------------
 # Controls (collapsed into expander)
 # ---------------------------
-with st.expander("Adjust yardages", expanded=False):
+with st.expander("Adjust Yardages", expanded=False):
     chs_today = st.slider("Driver CHS (mph)", 90, 135, 105, 1)
 
     c1, c2 = st.columns([0.9, 1.8], vertical_alignment="center")
@@ -408,7 +407,7 @@ with tab_clubs:
         if nxt and nxt[1] is not None:
             gap = carry - nxt[1]
             sign = "+" if gap >= 0 else ""
-            gap_map[label] = f"Gap to next: {sign}{gap:.0f} yd"
+            gap_map[label] = f"Gap to Next: {sign}{gap:.0f} yd"
 
     for i in range(0, len(clubs_only), 2):
         left, right = st.columns(2, gap="small")
