@@ -293,6 +293,37 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+/* Tabs: clean Augusta (no filled pill) */
+div[data-testid="stTabs"] button{
+  border-radius: 10px !important;
+  padding: 6px 10px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+div[data-testid="stTabs"] button:hover{
+  border-color: rgba(16,32,26,0.10) !important;
+  background: rgba(255,255,255,0.35) !important;
+}
+
+div[data-testid="stTabs"] button[aria-selected="true"]{
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #004c35 !important;
+  font-weight: 800 !important;
+  border-bottom: 3px solid #d4af37 !important; /* gold underline */
+}
+
+div[data-testid="stTabs"] button[aria-selected="false"]{
+  color: rgba(16,32,26,0.75) !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
 # ---------------------------
