@@ -174,11 +174,18 @@ hr { border-color: var(--line) !important; }
   align-items: center;
   min-height: 24px;
 }
-
 .gappill{
   display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(16,32,26,0.10);
+  background: rgba(255,255,255,0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: rgba(16,32,26,0.68);
   min-height: 18px;
 }
+
 
 /* wedges: mini grid */
 .wgrid {
@@ -389,7 +396,6 @@ max_carry = float(driver_carry) if driver_carry else 1.0
 def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None):
     fill_pct = clamp01(fill_pct)
 
-    gap_safe = gap_text if gap_text else "&nbsp;"
     st.markdown(
         f"""
         <div class="ycard">
@@ -404,6 +410,7 @@ def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str
         """,
         unsafe_allow_html=True
     )
+
 
 
 with tab_clubs:
@@ -540,7 +547,9 @@ with tab_wedges:
 
         # full-carry bar uses max_carry scaling
         fill = (carry_full / max_carry) if (carry_full is not None and max_carry) else 0.0
-        gap_html = f'<div class="gapline"><span class="gappill">{gap_text}</span></div>' if gap_text else ""
+
+        # ✅ Always reserve the gap row height (prevents last tile being shorter)
+        gap_safe = gap_text if gap_text else "&nbsp;"
 
         st.markdown(
             f"""
@@ -551,7 +560,7 @@ with tab_wedges:
               </div>
               <div class="ysub">{sub}</div>
               <div class="barwrap"><div class="barfill" style="width:{clamp01(fill)*100:.0f}%;"></div></div>
-              {gap_html}
+              <div class="gapline"><span class="gappill">{gap_safe}</span></div>
               {grid_html}
             </div>
             """,
