@@ -1,0 +1,133 @@
+baseline:
+  driver_chs_mph: 115
+
+  clubs:
+    - id: driver
+      label: "Driver"
+      category: wood
+      club_speed_mph: 115
+      carry_yd: 282
+
+    - id: wood_3
+      label: "3W"
+      category: wood
+      club_speed_mph: 110
+      carry_yd: 249
+
+    - id: wood_5
+      label: "5W"
+      category: wood
+      club_speed_mph: 106
+      carry_yd: 236
+
+    - id: hybrid
+      label: "Hybrid"
+      category: hybrid
+      club_speed_mph: 102
+      carry_yd: 231
+
+    - id: iron_3
+      label: "3i"
+      category: iron
+      club_speed_mph: 100
+      carry_yd: 218
+
+    - id: iron_4
+      label: "4i"
+      category: iron
+      club_speed_mph: 98
+      carry_yd: 209
+
+    - id: iron_5
+      label: "5i"
+      category: iron
+      club_speed_mph: 96
+      carry_yd: 199
+
+    - id: iron_6
+      label: "6i"
+      category: iron
+      club_speed_mph: 94
+      carry_yd: 188
+
+    - id: iron_7
+      label: "7i"
+      category: iron
+      club_speed_mph: 92
+      carry_yd: 176
+
+    - id: iron_8
+      label: "8i"
+      category: iron
+      club_speed_mph: 89
+      carry_yd: 164
+
+    - id: iron_9
+      label: "9i"
+      category: iron
+      club_speed_mph: 87
+      carry_yd: 152
+
+    - id: wedge_pw
+      label: "PW (46°)"
+      category: wedge
+      loft_deg: 46
+      club_speed_mph: 84
+      carry_yd: 142
+
+model:
+  exponent_shape_p: 2.0
+
+rollout_defaults_yd:
+  "Driver": 15
+  "3W": 10
+  "5W": 8
+  "Hybrid": 6
+  "3i": 5
+  "4i": 5
+  "5i": 5
+  "6i": 4
+  "7i": 4
+  "8i": 3
+  "9i": 3
+  "PW (46°)": 2
+
+wedges:
+  catalog:
+    - { label: "PW (46°)", loft_deg: 46 }
+    - { label: "GW (50°)", loft_deg: 50 }
+    - { label: "SW (56°)", loft_deg: 56 }
+    - { label: "LW (60°)", loft_deg: 60 }
+
+  partials:
+    scheme: ["25%", "50%", "75%", "100%"]
+    carry_yd:
+      "PW (46°)": { "25%": null, "50%": null, "75%": null, "100%": 142 }
+      "GW (50°)": { "25%": null, "50%": null, "75%": null, "100%": null }
+      "SW (56°)": { "25%": null, "50%": null, "75%": null, "100%": null }
+      "LW (60°)": { "25%": null, "50%": null, "75%": null, "100%": null }
+
+  choke_down:
+    subtract_yd_default: 4
+    allowed_range_yd: [3, 5]
+
+ui:
+  default_bag:
+    - "Driver"
+    - "3W"
+    - "3H"
+    - "2U"
+    - "4i"
+    - "5i"
+    - "6i"
+    - "7i"
+    - "8i"
+    - "9i"
+    - "PW (46°)"
+    - "GW (50°)"
+    - "SW (56°)"
+    - "LW (60°)"
+
+
+  baseline_aliases:
+    "3H": "Hybrid"
