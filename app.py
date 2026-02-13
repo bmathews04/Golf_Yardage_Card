@@ -177,7 +177,8 @@ with c3:
     bag_default = presets.get(preset, default_bag)
 
 with st.expander("Customize clubs shown"):
-    bag = st.multiselect("Clubs", options=sorted(set(catalog + bag_default)), default=bag_default)
+    options = list(dict.fromkeys(catalog + bag_default))
+    bag = st.multiselect("Clubs", options=options, default=bag_default)
 
 if not bag:
     bag = bag_default
