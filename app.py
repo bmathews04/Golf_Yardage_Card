@@ -300,7 +300,6 @@ def clamp01(x: float) -> float:
 # Title
 # ---------------------------
 st.markdown('<div class="section-title"><div class="section-dot"></div><h1 style="margin:0;">Yardage Card</h1></div>', unsafe_allow_html=True)
-st.caption("Tournament-mode: your modeled yardages only (no GPS, no conditions, no recommendations).")
 
 # ---------------------------
 # Controls (mobile-first)
