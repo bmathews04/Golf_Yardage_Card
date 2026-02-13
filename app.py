@@ -293,7 +293,7 @@ with tab_wedges:
         wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
 
     # Order left-to-right: 100% -> 25%
-    scheme = ["Choke-down", "75%", "50%", "25%"]
+    scheme = ["100%","Choke-down", "75%", "50%", "25%"]
     pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00}
 
     def wedge_values(full_carry: float):
