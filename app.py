@@ -197,12 +197,12 @@ st.markdown('<div class="section-title"><div class="section-dot"></div><h1 style
 # Controls (mobile-first)
 # ---------------------------
 # Row 1: CHS slider full width
-chs_today = st.slider("Driver CHS (mph)", 90, 130, int(baseline_chs0), 1)
+chs_today = st.slider("Driver CHS (mph)", 90, 130, 105, 1)
 
 # Row 2: compact controls
 c1, c2, c3 = st.columns([1.3, 0.9, 1.8], vertical_alignment="center")
 with c1:
-    view = st.segmented_control("View", ["Carry", "Carry + Total"], default="Carry")
+    view = st.segmented_control("View", ["Carry", "Carry + Total"], default="Carry + Total")
 with c2:
     offset = st.number_input("± (yd)", -25, 25, 0, 1)
 with c3:
