@@ -304,6 +304,17 @@ st.markdown('<div class="section-title"><div class="section-dot"></div><h1 style
 # ---------------------------
 # Controls (mobile-first)
 # ---------------------------
+# badges (pro glance)
+st.markdown(
+    f"""
+    <div class="badges">
+      <div class="badge">CHS: {chs_today} mph</div>
+      <div class="badge">Offset: {offset:+.0f} yd</div>
+      <div class="badge">Preset: {preset}</div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 chs_today = st.slider("Driver CHS (mph)", 90, 135, 105, 1)
 
 c1, c2 = st.columns([0.9, 1.8], vertical_alignment="center")
@@ -321,18 +332,6 @@ with st.expander("Customize clubs shown"):
 
 if not bag:
     bag = bag_default
-
-# badges (pro glance)
-st.markdown(
-    f"""
-    <div class="badges">
-      <div class="badge">CHS: {chs_today} mph</div>
-      <div class="badge">Offset: {offset:+.0f} yd</div>
-      <div class="badge">Preset: {preset}</div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
 
 st.divider()
 
