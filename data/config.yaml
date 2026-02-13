@@ -14,7 +14,10 @@ baseline:
     - { label: "7i",     club_speed_mph: 92,  carry_yd: 176, category: iron }
     - { label: "8i",     club_speed_mph: 89,  carry_yd: 164, category: iron }
     - { label: "9i",     club_speed_mph: 87,  carry_yd: 152, category: iron }
-    - { label: "PW (46°)", club_speed_mph: 84, carry_yd: 142, category: wedge, loft_deg: 46 }
+    - { label: "PW (46°)", club_speed_mph: 78, carry_yd: 125, category: wedge, loft_deg: 46 }
+    - { label: "GW (50°)", club_speed_mph: 74, carry_yd: 112, category: wedge, loft_deg: 50 }
+    - { label: "SW (56°)", club_speed_mph: 70, carry_yd: 95,  category: wedge, loft_deg: 56 }
+    - { label: "LW (60°)", club_speed_mph: 68, carry_yd: 85,  category: wedge, loft_deg: 60 }
 
 model:
   exponent_shape_p: 2.0
