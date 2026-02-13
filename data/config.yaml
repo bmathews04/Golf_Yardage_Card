@@ -1,165 +1,49 @@
 baseline:
   driver_chs_mph: 115
 
-  # Baseline source: 2023 TrackMan PGA TOUR averages (as provided by you)
-  # Total is computed as carry + rollout (rollout defaults are editable).
-  clubs:
-    - id: driver
-      label: "Driver"
-      category: wood
-      club_speed_mph: 115
-      carry_yd: 282
-
-    - id: wood_3
-      label: "3W"
-      category: wood
-      club_speed_mph: 110
-      carry_yd: 249
-
-    - id: wood_5
-      label: "5W"
-      category: wood
-      club_speed_mph: 106
-      carry_yd: 236
-
-    - id: hybrid
-      label: "Hybrid"
-      category: hybrid
-      club_speed_mph: 102
-      carry_yd: 231
-
-    # Added to match your bag preset explicitly
-    - id: hybrid_3h
-      label: "3H"
-      category: hybrid
-      club_speed_mph: 102
-      carry_yd: 231
-
-    # Utilities / Irons from TrackMan table where available
-    - id: iron_3
-      label: "3i"
-      category: iron
-      club_speed_mph: 100
-      carry_yd: 218
-
-    - id: iron_4
-      label: "4i"
-      category: iron
-      club_speed_mph: 98
-      carry_yd: 209
-
-    - id: iron_5
-      label: "5i"
-      category: iron
-      club_speed_mph: 96
-      carry_yd: 199
-
-    - id: iron_6
-      label: "6i"
-      category: iron
-      club_speed_mph: 94
-      carry_yd: 188
-
-    - id: iron_7
-      label: "7i"
-      category: iron
-      club_speed_mph: 92
-      carry_yd: 176
-
-    - id: iron_8
-      label: "8i"
-      category: iron
-      club_speed_mph: 89
-      carry_yd: 164
-
-    - id: iron_9
-      label: "9i"
-      category: iron
-      club_speed_mph: 87
-      carry_yd: 152
-
-    - id: wedge_pw
-      label: "PW (46°)"
-      category: wedge
-      loft_deg: 46
-      club_speed_mph: 84
-      carry_yd: 142
-
-    # Placeholder baselines (overwrite with your personal numbers anytime)
-    - id: util_2u
-      label: "2U"
-      category: utility
-      club_speed_mph: 101
-      carry_yd: 225
-
-    - id: wedge_gw
-      label: "GW (50°)"
-      category: wedge
-      loft_deg: 50
-      club_speed_mph: 82
-      carry_yd: 128
-
-    - id: wedge_sw
-      label: "SW (56°)"
-      category: wedge
-      loft_deg: 56
-      club_speed_mph: 80
-      carry_yd: 112
-
-    - id: wedge_lw
-      label: "LW (60°)"
-      category: wedge
-      loft_deg: 60
-      club_speed_mph: 78
-      carry_yd: 98
+  # 2023 TrackMan PGA TOUR averages (your screenshot)
+  anchors:
+    - { label: "Driver", club_speed_mph: 115, carry_yd: 282, category: wood }
+    - { label: "3W",     club_speed_mph: 110, carry_yd: 249, category: wood }
+    - { label: "5W",     club_speed_mph: 106, carry_yd: 236, category: wood }
+    - { label: "Hybrid", club_speed_mph: 102, carry_yd: 231, category: hybrid }
+    - { label: "3i",     club_speed_mph: 100, carry_yd: 218, category: iron }
+    - { label: "4i",     club_speed_mph: 98,  carry_yd: 209, category: iron }
+    - { label: "5i",     club_speed_mph: 96,  carry_yd: 199, category: iron }
+    - { label: "6i",     club_speed_mph: 94,  carry_yd: 188, category: iron }
+    - { label: "7i",     club_speed_mph: 92,  carry_yd: 176, category: iron }
+    - { label: "8i",     club_speed_mph: 89,  carry_yd: 164, category: iron }
+    - { label: "9i",     club_speed_mph: 87,  carry_yd: 152, category: iron }
+    - { label: "PW (46°)", club_speed_mph: 84, carry_yd: 142, category: wedge, loft_deg: 46 }
 
 model:
-  # Responsiveness exponent: g_c = (club_speed / driver_speed) ^ p
   exponent_shape_p: 2.0
 
 rollout_defaults_yd:
-  "Driver": 15
-  "3W": 10
-  "5W": 8
-  "Hybrid": 6
-  "3H": 6
-  "2U": 5
-  "3i": 5
-  "4i": 5
-  "5i": 5
-  "6i": 4
-  "7i": 4
-  "8i": 3
-  "9i": 3
-  "PW (46°)": 2
-  "GW (50°)": 1
-  "SW (56°)": 1
-  "LW (60°)": 0
+  # Used for Carry+Total view: Total = Carry + rollout
+  Driver: 15
+  Woods: 10
+  Hybrid: 6
+  Utility: 5
+  LongIrons: 5
+  MidIrons: 4
+  ShortIrons: 3
+  Wedges: 1
 
 wedges:
-  # Your wedge set (name + loft)
-  catalog:
-    - { label: "PW (46°)", loft_deg: 46 }
-    - { label: "GW (50°)", loft_deg: 50 }
-    - { label: "SW (56°)", loft_deg: 56 }
-    - { label: "LW (60°)", loft_deg: 60 }
+  choke_down_subtract_yd: 4
 
   partials:
-    # Explicit carries (not derived by percentages).
-    # These are solid starting placeholders—swap with your real partials anytime.
-    scheme: ["25%", "50%", "75%", "100%"]
-    carry_yd:
-      "PW (46°)": { "25%": 55, "50%": 80, "75%": 110, "100%": 142 }
-      "GW (50°)": { "25%": 50, "50%": 75, "75%": 100, "100%": 128 }
-      "SW (56°)": { "25%": 45, "50%": 70, "75%": 90,  "100%": 112 }
-      "LW (60°)": { "25%": 40, "50%": 62, "75%": 80,  "100%": 98 }
-
-  choke_down:
-    subtract_yd_default: 4
-    allowed_range_yd: [3, 5]
+    scheme: ["25%", "50%", "75%", "Choke-down", "100%"]
+    # Percent-based placeholders are generated automatically from each wedge’s computed 100% carry.
+    # You can later choose to hardcode exact numbers if you want, but not required.
+    percent_map:
+      "25%": 0.40
+      "50%": 0.60
+      "75%": 0.80
+      "100%": 1.00
 
 ui:
-  # Your default pre-selected bag
   default_bag:
     - "Driver"
     - "3W"
@@ -176,5 +60,8 @@ ui:
     - "SW (56°)"
     - "LW (60°)"
 
-  # No aliases needed now that 3H is explicitly in baseline.
-  baseline_aliases: {}
+  presets:
+    "My Bag": ["Driver","3W","3H","2U","4i","5i","6i","7i","8i","9i","PW (46°)","GW (50°)","SW (56°)","LW (60°)"]
+    "Tour Anchors": ["Driver","3W","5W","Hybrid","3i","4i","5i","6i","7i","8i","9i","PW (46°)"]
+
+  default_preset: "My Bag"
