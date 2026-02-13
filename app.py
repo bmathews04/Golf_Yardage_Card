@@ -9,6 +9,12 @@ from src.estimates import (
     responsiveness_exponent, scaled_carry, rollout_for, category_of
 )
 
+from src.estimates import (
+    Anchor, anchors_by_label,
+    estimate_club_speed, estimate_carry, estimate_carry_from_speed,
+    responsiveness_exponent, scaled_carry, rollout_for, category_of
+)
+
 # ---------------------------
 # Page config (MUST be first Streamlit call)
 # ---------------------------
@@ -308,10 +314,12 @@ def compute_baseline(label: str):
     if label in anchor_map:
         a = anchor_map[label]
         return a.club_speed_mph, a.carry_yd
+
     spd = estimate_club_speed(label, anchor_map)
     if spd is None:
         return None, None
-    carry = estimate_carry_from_speed(spd, anchors)
+
+    carry = estimate_carry(label, float(spd), anchor_map, anchors)
     return float(spd), float(carry)
 
 def compute_today(label: str, chs_today: float, offset: float):
