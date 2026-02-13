@@ -396,6 +396,8 @@ max_carry = float(driver_carry) if driver_carry else 1.0
 def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None):
     fill_pct = clamp01(fill_pct)
 
+    gap_safe = gap_text if gap_text else "&nbsp;"
+
     st.markdown(
         f"""
         <div class="ycard">
@@ -410,8 +412,6 @@ def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str
         """,
         unsafe_allow_html=True
     )
-
-
 
 with tab_clubs:
     st.markdown('<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Clubs</h3></div>', unsafe_allow_html=True)
