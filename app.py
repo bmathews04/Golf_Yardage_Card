@@ -387,40 +387,51 @@ with tab_clubs:
 
     clubs_only = [x for x in bag if category_of(x) not in ("wedge", "putter")]
 
+    club_vals = []
+    for label in clubs_only:
+        carry, total = compute_today(label, chs_today, offset)
+        sort_carry = carry if carry is not None else -1e9
+        club_vals.append((label, carry, total, sort_carry))
+
+    club_vals.sort(key=lambda x: x[3], reverse=True)
+
+    clubs_only_sorted = [x[0] for x in club_vals]
+
     # compute carries in sorted order for gap labels
     club_vals = []
     for label in clubs_only:
         carry, total = compute_today(label, chs_today, offset)
         club_vals.append((label, carry, total))
 
-    # gap to NEXT club (by carry), using list order
     gap_map = {}
-    for idx, (label, carry, total) in enumerate(club_vals):
+    for i, (label, carry, total, _) in enumerate(club_vals):
         if carry is None:
             continue
-        # find next with carry
-        nxt = None
-        for j in range(idx + 1, len(club_vals)):
-            if club_vals[j][1] is not None:
-                nxt = club_vals[j]
-                break
-        if nxt and nxt[1] is not None:
-            gap = carry - nxt[1]
-            sign = "+" if gap >= 0 else ""
-            gap_map[label] = f"Gap to Next: {sign}{gap:.0f} yd"
 
-    for i in range(0, len(clubs_only), 2):
+        nxt_carry = None
+        for j in range(i + 1, len(club_vals)):
+            if club_vals[j][1] is not None:
+                nxt_carry = club_vals[j][1]
+                break
+
+        if nxt_carry is not None:
+            gap = carry - nxt_carry
+            gap_map[label] = f"Gap to next: +{gap:.0f} yd"
+
+# --- render in sorted order ---
+    for i in range(0, len(clubs_sorted), 2):
         left, right = st.columns(2, gap="small")
-        for col, label in zip([left, right], clubs_only[i:i+2]):
+        for col, label in zip([left, right], clubs_sorted[i:i+2]):
             carry, total = compute_today(label, chs_today, offset)
+
             if carry is None:
-                shown, sub, fill = "—", "No model", 0.0
-                gap_txt = None
+                shown, sub, fill, gap_txt = "—", "No model", 0.0, None
             else:
                 shown = f"{carry:.0f} / {total:.0f}"
                 sub = "Carry / Total"
                 fill = (carry / max_carry) if max_carry else 0.0
                 gap_txt = gap_map.get(label)
+
             with col:
                 render_card(label, shown, sub, fill, gap_txt)
 
@@ -445,7 +456,37 @@ with tab_wedges:
                 vals[k] = full_carry * float(pct_map[k])
         return vals
 
-    def render_wedge_card(label: str):
+    # ---------------------------
+    # SORT wedges by modeled full carry (desc)
+    # ---------------------------
+    wedge_vals = []
+    for w in wedge_labels:
+        carry_full, total_full = compute_today(w, chs_today, offset)
+        sort_carry = carry_full if carry_full is not None else -1e9
+        wedge_vals.append((w, carry_full, total_full, sort_carry))
+
+    wedge_vals.sort(key=lambda x: x[3], reverse=True)
+    wedge_labels_sorted = [x[0] for x in wedge_vals]
+
+    # ---------------------------
+    # OPTIONAL: gap to next wedge (desc carry list)
+    # ---------------------------
+    wedge_gap_map = {}
+    for i, (label, carry_full, total_full, _) in enumerate(wedge_vals):
+        if carry_full is None:
+            continue
+
+        nxt_carry = None
+        for j in range(i + 1, len(wedge_vals)):
+            if wedge_vals[j][1] is not None:
+                nxt_carry = wedge_vals[j][1]
+                break
+
+        if nxt_carry is not None:
+            gap = carry_full - nxt_carry
+            wedge_gap_map[label] = f"Gap to next: +{gap:.0f} yd"
+
+    def render_wedge_card(label: str, gap_text: str | None = None):
         carry_full, total_full = compute_today(label, chs_today, offset)
 
         if carry_full is None:
@@ -455,7 +496,8 @@ with tab_wedges:
             for k in scheme:
                 k2 = lbl_map.get(k, k)
                 cells.append(
-                    f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">—</div><div class="wbarwrap"><div class="wbarfill" style="width:0%;"></div></div></div>'
+                    f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">—</div>'
+                    f'<div class="wbarwrap"><div class="wbarfill" style="width:0%;"></div></div></div>'
                 )
             grid_html = f'<div class="wgrid">{"".join(cells)}</div>'
         else:
@@ -467,15 +509,15 @@ with tab_wedges:
             for k in scheme:
                 k2 = lbl_map.get(k, k)
                 v = float(vals[k])
-                # mini-bar relative to full carry (100% cell)
                 pct = clamp01(v / carry_full) if carry_full else 0.0
                 cells.append(
-                    f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">{v:.0f}</div><div class="wbarwrap"><div class="wbarfill" style="width:{pct*100:.0f}%;"></div></div></div>'
+                    f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">{v:.0f}</div>'
+                    f'<div class="wbarwrap"><div class="wbarfill" style="width:{pct*100:.0f}%;"></div></div></div>'
                 )
             grid_html = f'<div class="wgrid">{"".join(cells)}</div>'
 
-        # wedge card includes a full-carry bar as well
         fill = (carry_full / max_carry) if (carry_full is not None and max_carry) else 0.0
+        gap_html = f'<div class="gapline"><span class="gappill">{gap_text}</span></div>' if gap_text else ""
 
         st.markdown(
             f"""
@@ -486,14 +528,16 @@ with tab_wedges:
               </div>
               <div class="ysub">{sub}</div>
               <div class="barwrap"><div class="barfill" style="width:{clamp01(fill)*100:.0f}%;"></div></div>
+              {gap_html}
               {grid_html}
             </div>
             """,
             unsafe_allow_html=True
         )
 
-    for i in range(0, len(wedge_labels), 2):
+    for i in range(0, len(wedge_labels_sorted), 2):
         left, right = st.columns(2, gap="small")
-        for col, label in zip([left, right], wedge_labels[i:i+2]):
+        for col, label in zip([left, right], wedge_labels_sorted[i:i+2]):
             with col:
-                render_wedge_card(label)
+                render_wedge_card(label, gap_text=wedge_gap_map.get(label))
+
