@@ -170,6 +170,21 @@ hr { border-color: var(--line) !important; }
 /* ✅ FIX: force every card to reserve space for the gap row (keeps last tile same height) */
 .gapline { min-height: 24px; }
 .gappill { min-height: 18px; }
+/* ✅ Keep ALL cards same height: always reserve space for the gap row */
+.gapline { 
+  min-height: 24px; 
+  align-items: center;
+}
+.gappill { 
+  min-height: 18px; 
+}
+
+/* If your wedge cards use the same gap classes (they do), nothing else is required.
+   But in case you ever wrap wedge gap in a different container, keep this too: */
+.ycard.wedge .gapline { 
+  min-height: 24px; 
+}
+
 
 /* wedges: mini grid */
 .wgrid {
