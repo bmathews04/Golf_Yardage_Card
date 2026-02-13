@@ -14,6 +14,21 @@ from src.estimates import (
 # ---------------------------
 st.set_page_config(page_title="Yardage Card", layout="wide")
 
+st.markdown("""
+<style>
+/* Kill the extra whitespace at the very top */
+.block-container { padding-top: 0.15rem !important; }
+header[data-testid="stHeader"] { height: 0rem !important; }
+div[data-testid="stToolbar"] { visibility: hidden !important; height: 0rem !important; }
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+
+/* Tighten title/caption spacing */
+h1 { margin-top: 0.0rem !important; margin-bottom: 0.15rem !important; }
+[data-testid="stCaptionContainer"] { margin-top: 0.0rem !important; margin-bottom: 0.5rem !important; }
+</style>
+""", unsafe_allow_html=True)
+
 # ---------------------------
 # Augusta / Masters-inspired theme (CSS)
 # ---------------------------
