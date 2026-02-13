@@ -34,14 +34,16 @@ wedges:
   choke_down_subtract_yd: 4
 
   partials:
-    scheme: ["25%", "50%", "75%", "Choke-down", "100%"]
-    # Percent-based placeholders are generated automatically from each wedge’s computed 100% carry.
-    # You can later choose to hardcode exact numbers if you want, but not required.
-    percent_map:
-      "25%": 0.40
-      "50%": 0.60
-      "75%": 0.80
-      "100%": 1.00
+    # Non-linear "feel" model:
+    # carry_partial = full_carry * (feel ^ alpha)
+    # alpha < 1.0 makes partials carry farther vs linear (more realistic for "feel %")
+    alpha: 0.55
+
+    feel_map:
+      "75%": 0.75
+      "50%": 0.50
+      "25%": 0.25
+
 
 ui:
   default_bag:
