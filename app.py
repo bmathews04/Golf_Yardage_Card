@@ -164,6 +164,12 @@ hr { border-color: var(--line) !important; }
 
 .yrow { display:flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .yclub { font-size: 1.0rem; font-weight: 800; color: var(--ink); }
+.ycloft{
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: rgba(16,32,26,0.55);
+  margin-left: 8px;
+}
 .yvals {
   font-size: 1.18rem;
   font-weight: 900;
