@@ -33,7 +33,7 @@ h1 { margin-top: 0.0rem !important; margin-bottom: 0.15rem !important; }
 """, unsafe_allow_html=True)
 
 # ---------------------------
-# Augusta / Masters-inspired theme (CSS)
+# Augusta / Masters-inspired theme (CSS) + Pro visuals (badges, bars, gaps)
 # ---------------------------
 st.markdown("""
 <style>
@@ -49,10 +49,12 @@ st.markdown("""
   --line: rgba(16,32,26,0.12);
 }
 
-/* tighter overall layout + cream background */
+/* background */
 .stApp {
   background: linear-gradient(180deg, var(--cream) 0%, #ffffff 65%);
 }
+
+/* container */
 .block-container {
   padding-top: 0.15rem !important;
   padding-bottom: 2.5rem;
@@ -61,7 +63,7 @@ st.markdown("""
 h1 { margin-bottom: 0.2rem; color: var(--ink); }
 [data-testid="stCaptionContainer"] { margin-bottom: 0.6rem; color: var(--muted); }
 
-/* remove extra top whitespace on mobile */
+/* mobile padding */
 @media (max-width: 768px){
   .block-container { padding-left: 0.75rem; padding-right: 0.75rem; }
 }
@@ -75,7 +77,35 @@ label, .stMarkdown { color: var(--ink); }
 /* divider */
 hr { border-color: var(--line) !important; }
 
-/* Cards */
+/* section headers */
+.section-title{ display:flex; align-items:center; gap:10px; }
+.section-dot{
+  width:10px; height:10px; border-radius:999px;
+  background: var(--azalea-pink);
+  box-shadow: 0 0 0 3px rgba(232,106,163,0.20);
+}
+/* a subtle gold underline on headers */
+.section-underline{
+  height: 2px;
+  width: 52px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold), rgba(212,175,55,0.15));
+  margin: 6px 0 10px 20px;
+}
+
+/* badges */
+.badges { display:flex; gap:8px; flex-wrap:wrap; margin: 6px 0 12px 0; }
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(16,32,26,0.12);
+  background: rgba(255,255,255,0.65);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: rgba(16,32,26,0.75);
+}
+
+/* cards */
 .ycard {
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -91,17 +121,35 @@ hr { border-color: var(--line) !important; }
 .yvals { font-size: 1.18rem; font-weight: 900; color: var(--augusta-green-dark); }
 .ysub  { opacity: 0.75; font-size: 0.80rem; margin-top: 2px; color: var(--muted); }
 
-/* Section headers with a subtle azalea accent */
-.section-title{
-  display:flex; align-items:center; gap:10px;
+/* carry bar */
+.barwrap {
+  width: 100%;
+  height: 7px;
+  background: rgba(16,32,26,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
 }
-.section-dot{
-  width:10px; height:10px; border-radius:999px;
-  background: var(--azalea-pink);
-  box-shadow: 0 0 0 3px rgba(232,106,163,0.20);
+.barfill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--augusta-green), var(--augusta-green-dark));
+  border-radius: 999px;
 }
 
-/* Wedge cards: mini grid inside same card style */
+/* gap pill */
+.gapline { margin-top: 6px; display:flex; justify-content: flex-start; }
+.gappill{
+  display:inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(16,32,26,0.10);
+  background: rgba(255,255,255,0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: rgba(16,32,26,0.68);
+}
+
+/* wedges: mini grid */
 .wgrid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -125,8 +173,22 @@ hr { border-color: var(--line) !important; }
   margin-top: 2px;
   font-size: 1.05rem;
   font-weight: 900;
-  color: #004c35; /* augusta green dark */
+  color: var(--augusta-green-dark);
 }
+.wbarwrap{
+  width: 100%;
+  height: 6px;
+  background: rgba(16,32,26,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.wbarfill{
+  height: 100%;
+  background: linear-gradient(90deg, var(--augusta-green), var(--augusta-green-dark));
+  border-radius: 999px;
+}
+
 .ycard.wedge { padding: 10px 12px; }
 </style>
 """, unsafe_allow_html=True)
@@ -168,6 +230,32 @@ anchor_map = anchors_by_label(anchors)
 catalog = build_full_catalog()
 
 # ---------------------------
+# Helper functions
+# ---------------------------
+def compute_baseline(label: str):
+    if label in anchor_map:
+        a = anchor_map[label]
+        return a.club_speed_mph, a.carry_yd
+    spd = estimate_club_speed(label, anchor_map)
+    if spd is None:
+        return None, None
+    carry = estimate_carry_from_speed(spd, anchors)
+    return float(spd), float(carry)
+
+def compute_today(label: str, chs_today: float, offset: float):
+    spd0, carry0 = compute_baseline(label)
+    if spd0 is None or carry0 is None:
+        return None, None
+    g = responsiveness_exponent(spd0, baseline_chs0, p_shape)
+    carry = scaled_carry(carry0, float(chs_today), baseline_chs0, g) + float(offset)
+    rollout = rollout_for(label, rollout_cfg)
+    total = carry + rollout
+    return carry, total
+
+def clamp01(x: float) -> float:
+    return max(0.0, min(1.0, x))
+
+# ---------------------------
 # Title
 # ---------------------------
 st.markdown('<div class="section-title"><div class="section-dot"></div><h1 style="margin:0;">Yardage Card</h1></div>', unsafe_allow_html=True)
@@ -176,10 +264,8 @@ st.caption("Tournament-mode: your modeled yardages only (no GPS, no conditions, 
 # ---------------------------
 # Controls (mobile-first)
 # ---------------------------
-# Row 1: CHS slider full width (default 105)
 chs_today = st.slider("Driver CHS (mph)", 90, 135, 105, 1)
 
-# Row 2: compact controls (NO view toggle; always Carry + Total)
 c1, c2 = st.columns([0.9, 1.8], vertical_alignment="center")
 with c1:
     offset = st.number_input("± (yd)", -25, 25, 0, 1)
@@ -196,36 +282,32 @@ with st.expander("Customize clubs shown"):
 if not bag:
     bag = bag_default
 
+# badges (pro glance)
+st.markdown(
+    f"""
+    <div class="badges">
+      <div class="badge">CHS: {chs_today} mph</div>
+      <div class="badge">Offset: {offset:+.0f} yd</div>
+      <div class="badge">Preset: {preset}</div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 st.divider()
 
 # ---------------------------
-# Helper functions
+# Tabs
 # ---------------------------
-def compute_baseline(label: str):
-    # If label is exactly an anchor, use it
-    if label in anchor_map:
-        a = anchor_map[label]
-        return a.club_speed_mph, a.carry_yd
+tab_clubs, tab_wedges = st.tabs(["Clubs", "Wedges"])
 
-    # Otherwise estimate club speed then infer carry from fitted curve
-    spd = estimate_club_speed(label, anchor_map)
-    if spd is None:
-        return None, None
-    carry = estimate_carry_from_speed(spd, anchors)
-    return float(spd), float(carry)
+# Precompute driver carry for bar scaling
+driver_carry, _ = compute_today("Driver", chs_today, offset)
+max_carry = float(driver_carry) if driver_carry else 1.0
 
-def compute_today(label: str):
-    spd0, carry0 = compute_baseline(label)
-    if spd0 is None or carry0 is None:
-        return None, None
-
-    g = responsiveness_exponent(spd0, baseline_chs0, p_shape)
-    carry = scaled_carry(carry0, float(chs_today), baseline_chs0, g) + float(offset)
-    rollout = rollout_for(label, rollout_cfg)
-    total = carry + rollout
-    return carry, total
-
-def render_card(label: str, shown: str, sub: str):
+def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None):
+    fill_pct = clamp01(fill_pct)
+    gap_html = f'<div class="gapline"><span class="gappill">{gap_text}</span></div>' if gap_text else ""
     st.markdown(
         f"""
         <div class="ycard">
@@ -234,45 +316,67 @@ def render_card(label: str, shown: str, sub: str):
             <div class="yvals">{shown}</div>
           </div>
           <div class="ysub">{sub}</div>
+          <div class="barwrap"><div class="barfill" style="width:{fill_pct*100:.0f}%;"></div></div>
+          {gap_html}
         </div>
         """,
         unsafe_allow_html=True
     )
 
-# ---------------------------
-# Tabs (Clubs / Wedges)
-# ---------------------------
-tab_clubs, tab_wedges = st.tabs(["Clubs", "Wedges"])
-
 with tab_clubs:
     st.markdown('<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Clubs</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-underline"></div>', unsafe_allow_html=True)
 
     clubs_only = [x for x in bag if category_of(x) not in ("wedge", "putter")]
 
-    # Two-up grid for phone speed (less scrolling)
+    # compute carries in sorted order for gap labels
+    club_vals = []
+    for label in clubs_only:
+        carry, total = compute_today(label, chs_today, offset)
+        club_vals.append((label, carry, total))
+
+    # gap to NEXT club (by carry), using list order
+    gap_map = {}
+    for idx, (label, carry, total) in enumerate(club_vals):
+        if carry is None:
+            continue
+        # find next with carry
+        nxt = None
+        for j in range(idx + 1, len(club_vals)):
+            if club_vals[j][1] is not None:
+                nxt = club_vals[j]
+                break
+        if nxt and nxt[1] is not None:
+            gap = carry - nxt[1]
+            sign = "+" if gap >= 0 else ""
+            gap_map[label] = f"Gap to next: {sign}{gap:.0f} yd"
+
     for i in range(0, len(clubs_only), 2):
         left, right = st.columns(2, gap="small")
-
         for col, label in zip([left, right], clubs_only[i:i+2]):
-            carry, total = compute_today(label)
+            carry, total = compute_today(label, chs_today, offset)
             if carry is None:
-                shown, sub = "—", "No model"
+                shown, sub, fill = "—", "No model", 0.0
+                gap_txt = None
             else:
                 shown = f"{carry:.0f} / {total:.0f}"
                 sub = "Carry / Total"
+                fill = (carry / max_carry) if max_carry else 0.0
+                gap_txt = gap_map.get(label)
             with col:
-                render_card(label, shown, sub)
+                render_card(label, shown, sub, fill, gap_txt)
 
 with tab_wedges:
     st.markdown('<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Wedges</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-underline"></div>', unsafe_allow_html=True)
 
     wedge_labels = [x for x in bag if category_of(x) == "wedge"]
     if not wedge_labels:
         wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
 
-    # Order left-to-right: 100% -> 25%
     scheme = ["100%", "Choke-down", "75%", "50%", "25%"]
     pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00}
+    lbl_map = {"Choke-down": "Choke"}
 
     def wedge_values(full_carry: float):
         vals = {}
@@ -284,32 +388,36 @@ with tab_wedges:
         return vals
 
     def render_wedge_card(label: str):
-        carry_full, total_full = compute_today(label)
+        carry_full, total_full = compute_today(label, chs_today, offset)
+
         if carry_full is None:
             shown = "—"
             sub = "No model"
-            grid_html = """
-              <div class="wgrid">
-                <div class="wcell"><div class="wlab">100%</div><div class="wval">—</div></div>
-                <div class="wcell"><div class="wlab">Choke</div><div class="wval">—</div></div>
-                <div class="wcell"><div class="wlab">75%</div><div class="wval">—</div></div>
-                <div class="wcell"><div class="wlab">50%</div><div class="wval">—</div></div>
-                <div class="wcell"><div class="wlab">25%</div><div class="wval">—</div></div>
-              </div>
-            """
-        else:
-            # Keep the header value consistent with clubs: Carry / Total
-            shown = f"{carry_full:.0f} / {total_full:.0f}"
-            sub = "Full (Carry / Total)"
-            vals = wedge_values(carry_full)
-            lbl_map = {"Choke-down": "Choke"}
             cells = []
             for k in scheme:
                 k2 = lbl_map.get(k, k)
                 cells.append(
-                    f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">{vals[k]:.0f}</div></div>'
+                    f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">—</div><div class="wbarwrap"><div class="wbarfill" style="width:0%;"></div></div></div>'
                 )
             grid_html = f'<div class="wgrid">{"".join(cells)}</div>'
+        else:
+            shown = f"{carry_full:.0f} / {total_full:.0f}"
+            sub = "Full (Carry / Total)"
+            vals = wedge_values(carry_full)
+
+            cells = []
+            for k in scheme:
+                k2 = lbl_map.get(k, k)
+                v = float(vals[k])
+                # mini-bar relative to full carry (100% cell)
+                pct = clamp01(v / carry_full) if carry_full else 0.0
+                cells.append(
+                    f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">{v:.0f}</div><div class="wbarwrap"><div class="wbarfill" style="width:{pct*100:.0f}%;"></div></div></div>'
+                )
+            grid_html = f'<div class="wgrid">{"".join(cells)}</div>'
+
+        # wedge card includes a full-carry bar as well
+        fill = (carry_full / max_carry) if (carry_full is not None and max_carry) else 0.0
 
         st.markdown(
             f"""
@@ -319,13 +427,13 @@ with tab_wedges:
                 <div class="yvals">{shown}</div>
               </div>
               <div class="ysub">{sub}</div>
+              <div class="barwrap"><div class="barfill" style="width:{clamp01(fill)*100:.0f}%;"></div></div>
               {grid_html}
             </div>
             """,
             unsafe_allow_html=True
         )
 
-    # Two-up layout like Clubs
     for i in range(0, len(wedge_labels), 2):
         left, right = st.columns(2, gap="small")
         for col, label in zip([left, right], wedge_labels[i:i+2]):
