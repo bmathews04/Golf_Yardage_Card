@@ -581,8 +581,6 @@ with tab_debug:
     st.markdown('<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Debug</h3></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-underline"></div>', unsafe_allow_html=True)
 
-    st.caption("Calibration + sanity checks. Leave disabled during play.")
-
     enable_debug = st.checkbox("Enable debug output", value=False)
     if enable_debug:
         st.markdown("### Inputs")
