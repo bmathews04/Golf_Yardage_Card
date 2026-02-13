@@ -100,10 +100,13 @@ hr { border-color: var(--line) !important; }
 /* section headers */
 .section-title{ display:flex; align-items:center; gap:10px; }
 .section-dot{
-  width:10px; height:10px; border-radius:999px;
+  width: 6px;
+  height: 18px;
+  border-radius: 999px;
   background: var(--azalea-pink);
-  box-shadow: 0 0 0 3px rgba(232,106,163,0.20);
+  box-shadow: none;
 }
+
 /* a subtle gold underline on headers */
 .section-underline{
   height: 2px;
