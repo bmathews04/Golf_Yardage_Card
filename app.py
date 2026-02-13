@@ -344,6 +344,31 @@ def load_cfg():
 
 cfg = load_cfg()
 
+# ---------------------------
+# Loft helpers
+# ---------------------------
+lofts_cfg = cfg.get("lofts_deg", {})  # e.g., {"7i": 32, "3W": 15, ...}
+
+def loft_text_for(label: str) -> str | None:
+    """Return a pretty loft string for non-wedge clubs, like '32°' or '10.5°'."""
+    # Wedges already include loft in their label like "PW (46°)"
+    if category_of(label) == "wedge":
+        return None
+
+    loft = lofts_cfg.get(label)
+    if loft is None:
+        return None
+
+    try:
+        f = float(loft)
+    except Exception:
+        return None
+
+    # show 10.5° style if needed, otherwise integer like 32°
+    if abs(f - round(f)) < 1e-9:
+        return f"{int(round(f))}°"
+    return f"{f:.1f}°"
+
 baseline_chs0 = float(cfg["baseline"]["driver_chs_mph"])
 p_shape = float(cfg["model"]["exponent_shape_p"])
 rollout_cfg = cfg.get("rollout_defaults_yd", {})
@@ -471,13 +496,20 @@ max_carry = float(driver_carry) if driver_carry else 1.0
 def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None):
     fill_pct = clamp01(fill_pct)
 
+    loft_txt = loft_text_for(label)
+    label_html = (
+        f'{label}<span class="ycloft">{loft_txt}</span>'
+        if loft_txt else
+        f'{label}'
+    )
+
     gap_safe = gap_text if gap_text else "&nbsp;"
 
     st.markdown(
         f"""
         <div class="ycard">
           <div class="yrow">
-            <div class="yclub">{label}</div>
+            <div class="yclub">{label_html}</div>
             <div class="yvals">{shown}</div>
           </div>
           <div class="ysub">{sub}</div>
