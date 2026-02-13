@@ -271,6 +271,74 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+/* =========================
+   Augusta Classy – DROP-IN
+   Paste this at the END of your existing <style> block
+   ========================= */
+
+/* Tabs: pill active state + subtle hover */
+div[data-testid="stTabs"] button{
+  border-radius: 999px !important;
+  padding: 6px 12px !important;
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+
+div[data-testid="stTabs"] button:hover{
+  background: rgba(0,103,71,0.06) !important;
+}
+
+div[data-testid="stTabs"] button[aria-selected="true"]{
+  background: rgba(0,103,71,0.08) !important; /* Augusta green tint */
+  color: #004c35 !important;
+  border-bottom: 3px solid #d4af37 !important; /* keep gold underline */
+}
+
+/* Badges: more “chip” feel */
+.badge{
+  border: 1px solid rgba(16,32,26,0.10) !important;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.03) !important;
+}
+
+/* Cards: micro-hover + softer, classier depth */
+.ycard{
+  position: relative;
+  overflow: hidden;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.ycard:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  border-color: rgba(16,32,26,0.18);
+}
+
+/* Cards: subtle “sheen” highlight */
+.ycard:before{
+  content:"";
+  position:absolute;
+  left:0; top:0;
+  width:100%; height:40%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.0));
+  pointer-events:none;
+}
+
+/* Numbers: slightly tighter + crisp */
+.yvals{
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+}
+
+/* Bars: slightly thicker, more premium */
+.barwrap{ height: 8px; }
+.barfill{ filter: saturate(1.05); }
+
+/* Gap pill: a touch cleaner */
+.gappill{
+  border: 1px solid rgba(16,32,26,0.08) !important;
+  background: rgba(255,255,255,0.65) !important;
+}
+
+
 # ---------------------------
 # Config loading
 # ---------------------------
