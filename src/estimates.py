@@ -11,10 +11,10 @@ class Anchor:
     loft_deg: Optional[int] = None
 
 WEDGE_RE = re.compile(r"^(?P<name>PW|GW|SW|LW|Wedge)\s*\((?P<loft>\d{2})°\)$")
-IRON_RE = re.compile(r"^(?P<num>[1-9])i$")
-WOOD_RE = re.compile(r"^(?P<num>\d{1,2})W$")
+IRON_RE  = re.compile(r"^(?P<num>[1-9])i$")
+WOOD_RE  = re.compile(r"^(?P<num>\d{1,2})W$")
 HYBRID_RE = re.compile(r"^(?P<num>[1-7])H$")
-UTIL_RE = re.compile(r"^(?P<num>[1-5])U$")
+UTIL_RE   = re.compile(r"^(?P<num>[1-5])U$")
 
 def parse_loft(label: str) -> Optional[int]:
     m = WEDGE_RE.match(label)
@@ -38,48 +38,86 @@ def category_of(label: str) -> str:
 def anchors_by_label(anchors: list[Anchor]) -> dict[str, Anchor]:
     return {a.label: a for a in anchors}
 
-def wedge_loft_to_speed(target_loft: float, anchors: dict[str, Anchor]) -> Optional[float]:
-    """
-    Estimate wedge club speed from loft using all available wedge anchors that include loft_deg.
-    If 2+ wedge anchors exist, fit a simple line (least squares) speed = m*loft + b.
-    Otherwise fall back to PW (46°) with a default slope.
-    """
-    pts: list[tuple[float, float]] = []
+# ---------------------------
+# NEW: wedge loft-based helpers (fit from your wedge anchors)
+# ---------------------------
+def _wedge_anchor_points(anchors: dict[str, Anchor]):
+    pts = []
     for a in anchors.values():
-        if a.category == "wedge" and a.loft_deg is not None:
-            pts.append((float(a.loft_deg), float(a.club_speed_mph)))
+        if a.category == "wedge":
+            loft = a.loft_deg if a.loft_deg is not None else parse_loft(a.label)
+            if loft is not None:
+                pts.append((float(loft), float(a.club_speed_mph), float(a.carry_yd)))
+    pts.sort(key=lambda x: x[0])
+    return pts
 
-    # Fit using wedge anchors (preferred)
-    if len(pts) >= 2:
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
-        n = len(xs)
+def _fit_line(xs: list[float], ys: list[float]) -> tuple[float, float]:
+    """
+    Simple least squares fit: y = m*x + b
+    Returns (m, b). Requires len(xs) >= 2
+    """
+    n = len(xs)
+    xbar = sum(xs) / n
+    ybar = sum(ys) / n
+    num = sum((xs[i] - xbar) * (ys[i] - ybar) for i in range(n))
+    den = sum((xs[i] - xbar) ** 2 for i in range(n))
+    m = num / den if den != 0 else 0.0
+    b = ybar - m * xbar
+    return m, b
 
-        xbar = sum(xs) / n
-        ybar = sum(ys) / n
+def estimate_wedge_speed_from_loft(loft: int, anchors: dict[str, Anchor]) -> Optional[float]:
+    pts = _wedge_anchor_points(anchors)
+    if len(pts) < 2:
+        return None
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    m, b = _fit_line(xs, ys)
+    return m * float(loft) + b
 
-        denom = sum((x - xbar) ** 2 for x in xs)
-        if denom == 0:
-            return None
+def estimate_wedge_carry_from_loft(loft: int, anchors: dict[str, Anchor]) -> Optional[float]:
+    """
+    Prefer wedge carry based on loft interpolation/extrapolation from wedge anchors.
+    """
+    pts = _wedge_anchor_points(anchors)
+    if len(pts) < 2:
+        return None
 
-        m = sum((x - xbar) * (y - ybar) for x, y in zip(xs, ys)) / denom
-        b = ybar - m * xbar
+    # exact loft present
+    for L, _, C in pts:
+        if int(round(L)) == int(loft):
+            return float(C)
 
-        spd = m * float(target_loft) + b
+    # bracket & interpolate
+    lofts = [p[0] for p in pts]
+    carries = [p[2] for p in pts]
 
-        # Clamp to within anchor speeds to prevent extreme extrapolation
-        ymin, ymax = min(ys), max(ys)
-        return max(min(spd, ymax), ymin)
+    # below range -> extrapolate using first two
+    if loft <= lofts[0]:
+        x0, x1 = lofts[0], lofts[1]
+        y0, y1 = carries[0], carries[1]
+        t = (float(loft) - x0) / (x1 - x0)
+        return y0 + t * (y1 - y0)
 
-    # Fallback: PW slope if only PW exists
-    pw = anchors.get("PW (46°)")
-    if pw:
-        default_slope = 0.5  # mph per loft degree
-        return float(pw.club_speed_mph) - default_slope * (float(target_loft) - 46.0)
+    # above range -> extrapolate using last two
+    if loft >= lofts[-1]:
+        x0, x1 = lofts[-2], lofts[-1]
+        y0, y1 = carries[-2], carries[-1]
+        t = (float(loft) - x0) / (x1 - x0)
+        return y0 + t * (y1 - y0)
+
+    # inside range -> interpolate
+    for i in range(len(lofts) - 1):
+        if lofts[i] <= loft <= lofts[i + 1]:
+            x0, x1 = lofts[i], lofts[i + 1]
+            y0, y1 = carries[i], carries[i + 1]
+            t = (float(loft) - x0) / (x1 - x0)
+            return y0 + t * (y1 - y0)
 
     return None
 
-
+# ---------------------------
+# Your existing speed estimator (modified wedge section)
+# ---------------------------
 def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[float]:
     # Direct anchor
     if label in anchors:
@@ -87,42 +125,35 @@ def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[floa
 
     cat = category_of(label)
 
-    # Hybrids: map 3H ~ Hybrid anchor; scale by hybrid number
+    # Hybrids
     if HYBRID_RE.match(label):
         n = int(HYBRID_RE.match(label).group("num"))
         base = anchors.get("Hybrid")
         if not base:
             return None
-        # Higher hybrid number => slightly slower
         return base.club_speed_mph - (n - 3) * 1.5
 
-    # Utilities: between hybrid and long irons
+    # Utilities
     if UTIL_RE.match(label):
         n = int(UTIL_RE.match(label).group("num"))
-        # 2U roughly between Hybrid (102) and 3i (100)
         h = anchors.get("Hybrid")
         i3 = anchors.get("3i")
         if not (h and i3):
             return None
-        # 1U a touch faster than 2U, 5U slower
         base_2u = (h.club_speed_mph + i3.club_speed_mph) / 2
         return base_2u - (n - 2) * 1.2
 
-    # Irons: interpolate/extrapolate from known 3i..9i anchors
+    # Irons
     if IRON_RE.match(label):
         n = int(IRON_RE.match(label).group("num"))
-        # We have 3..9
         known = {int(k[0]): anchors[k].club_speed_mph for k in anchors if re.match(r"^[3-9]i$", k)}
         if not known:
             return None
-        # simple linear fit over iron number (works well enough for baseline speeds)
         xs = sorted(known.keys())
-        # slope using endpoints
-        slope = (known[xs[-1]] - known[xs[0]]) / (xs[-1] - xs[0])  # mph per iron number
-        # y = y0 + slope*(n-x0)
+        slope = (known[xs[-1]] - known[xs[0]]) / (xs[-1] - xs[0])
         return known[xs[0]] + slope * (n - xs[0])
 
-    # Woods: interpolate from 3W/5W anchors, plus driver
+    # Mini Driver
     if label == "Mini Driver":
         d = anchors.get("Driver")
         w3 = anchors.get("3W")
@@ -130,50 +161,49 @@ def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[floa
             return None
         return (d.club_speed_mph + w3.club_speed_mph) / 2
 
+    # Woods
     if WOOD_RE.match(label):
         n = int(WOOD_RE.match(label).group("num"))
-        d = anchors.get("Driver")
         w3 = anchors.get("3W")
-        w5 = anchors.get("5W")
-        if not (d and w3 and w5):
+        if not w3:
             return None
-        # Use a gentle curve: as wood number increases, speed drops but flattens
-        # Fit through 3W and 5W, then extend
-        # Approx drop per +2 wood number from 3->5 is (110-106)=4 mph
-        drop_per_wood = 2.0  # mph per wood number step (tunable, reasonable)
-        # center around 3W
+        drop_per_wood = 2.0
         return w3.club_speed_mph - (n - 3) * drop_per_wood
 
     if label == "Driver":
         return anchors.get("Driver").club_speed_mph if anchors.get("Driver") else None
 
+    # ✅ WEDGES: fit loft -> speed from your wedge anchors (Option A)
     if cat == "wedge":
         loft = parse_loft(label)
         if loft is None:
             return None
-        return wedge_loft_to_speed(float(loft), anchors)
+        spd = estimate_wedge_speed_from_loft(loft, anchors)
+        return float(spd) if spd is not None else None
 
     if cat == "putter":
         return None
 
     return None
 
+# ---------------------------
+# Carry estimation
+# ---------------------------
 def estimate_carry_from_speed(speed_mph: float, anchors: list[Anchor]) -> float:
     """
-    Fit a smooth-ish power law carry ≈ a * speed^b using the TrackMan anchors.
-    This captures non-linearity and avoids per-club hand tuning.
+    Fit a smooth-ish power law carry ≈ a * speed^b using anchors.
+    (Used mostly for clubs without direct carry anchors.)
     """
-    # Use anchors excluding putter
     pts = [(a.club_speed_mph, a.carry_yd) for a in anchors if a.category in ("wood", "hybrid", "iron", "wedge")]
-    # Simple log-log linear regression
+
     import math
     xs = [math.log(x) for x, _ in pts]
     ys = [math.log(y) for _, y in pts]
     n = len(xs)
     xbar = sum(xs) / n
     ybar = sum(ys) / n
-    num = sum((xs[i]-xbar)*(ys[i]-ybar) for i in range(n))
-    den = sum((xs[i]-xbar)**2 for i in range(n))
+    num = sum((xs[i] - xbar) * (ys[i] - ybar) for i in range(n))
+    den = sum((xs[i] - xbar) ** 2 for i in range(n))
     b = num / den
     a = math.exp(ybar - b * xbar)
     return a * (speed_mph ** b)
@@ -197,7 +227,6 @@ def rollout_for(label: str, rollout_cfg: dict) -> float:
     if cat == "utility":
         return float(rollout_cfg.get("Utility", 5))
     if cat == "iron":
-        # split irons by number
         m = IRON_RE.match(label)
         if m:
             n = int(m.group("num"))
