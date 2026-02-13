@@ -1,6 +1,8 @@
 baseline:
   driver_chs_mph: 115
 
+  # Baseline source: 2023 TrackMan PGA TOUR averages (as provided by you)
+  # Total is computed as carry + rollout (rollout defaults are editable).
   clubs:
     - id: driver
       label: "Driver"
@@ -26,6 +28,14 @@ baseline:
       club_speed_mph: 102
       carry_yd: 231
 
+    # Added to match your bag preset explicitly
+    - id: hybrid_3h
+      label: "3H"
+      category: hybrid
+      club_speed_mph: 102
+      carry_yd: 231
+
+    # Utilities / Irons from TrackMan table where available
     - id: iron_3
       label: "3i"
       category: iron
@@ -75,7 +85,36 @@ baseline:
       club_speed_mph: 84
       carry_yd: 142
 
+    # Placeholder baselines (overwrite with your personal numbers anytime)
+    - id: util_2u
+      label: "2U"
+      category: utility
+      club_speed_mph: 101
+      carry_yd: 225
+
+    - id: wedge_gw
+      label: "GW (50°)"
+      category: wedge
+      loft_deg: 50
+      club_speed_mph: 82
+      carry_yd: 128
+
+    - id: wedge_sw
+      label: "SW (56°)"
+      category: wedge
+      loft_deg: 56
+      club_speed_mph: 80
+      carry_yd: 112
+
+    - id: wedge_lw
+      label: "LW (60°)"
+      category: wedge
+      loft_deg: 60
+      club_speed_mph: 78
+      carry_yd: 98
+
 model:
+  # Responsiveness exponent: g_c = (club_speed / driver_speed) ^ p
   exponent_shape_p: 2.0
 
 rollout_defaults_yd:
@@ -83,6 +122,8 @@ rollout_defaults_yd:
   "3W": 10
   "5W": 8
   "Hybrid": 6
+  "3H": 6
+  "2U": 5
   "3i": 5
   "4i": 5
   "5i": 5
@@ -91,8 +132,12 @@ rollout_defaults_yd:
   "8i": 3
   "9i": 3
   "PW (46°)": 2
+  "GW (50°)": 1
+  "SW (56°)": 1
+  "LW (60°)": 0
 
 wedges:
+  # Your wedge set (name + loft)
   catalog:
     - { label: "PW (46°)", loft_deg: 46 }
     - { label: "GW (50°)", loft_deg: 50 }
@@ -100,18 +145,21 @@ wedges:
     - { label: "LW (60°)", loft_deg: 60 }
 
   partials:
+    # Explicit carries (not derived by percentages).
+    # These are solid starting placeholders—swap with your real partials anytime.
     scheme: ["25%", "50%", "75%", "100%"]
     carry_yd:
-      "PW (46°)": { "25%": null, "50%": null, "75%": null, "100%": 142 }
-      "GW (50°)": { "25%": null, "50%": null, "75%": null, "100%": null }
-      "SW (56°)": { "25%": null, "50%": null, "75%": null, "100%": null }
-      "LW (60°)": { "25%": null, "50%": null, "75%": null, "100%": null }
+      "PW (46°)": { "25%": 55, "50%": 80, "75%": 110, "100%": 142 }
+      "GW (50°)": { "25%": 50, "50%": 75, "75%": 100, "100%": 128 }
+      "SW (56°)": { "25%": 45, "50%": 70, "75%": 90,  "100%": 112 }
+      "LW (60°)": { "25%": 40, "50%": 62, "75%": 80,  "100%": 98 }
 
   choke_down:
     subtract_yd_default: 4
     allowed_range_yd: [3, 5]
 
 ui:
+  # Your default pre-selected bag
   default_bag:
     - "Driver"
     - "3W"
@@ -128,6 +176,5 @@ ui:
     - "SW (56°)"
     - "LW (60°)"
 
-
-  baseline_aliases:
-    "3H": "Hybrid"
+  # No aliases needed now that 3H is explicitly in baseline.
+  baseline_aliases: {}
