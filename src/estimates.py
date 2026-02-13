@@ -38,6 +38,48 @@ def category_of(label: str) -> str:
 def anchors_by_label(anchors: list[Anchor]) -> dict[str, Anchor]:
     return {a.label: a for a in anchors}
 
+def wedge_loft_to_speed(target_loft: float, anchors: dict[str, Anchor]) -> Optional[float]:
+    """
+    Estimate wedge club speed from loft using all available wedge anchors that include loft_deg.
+    If 2+ wedge anchors exist, fit a simple line (least squares) speed = m*loft + b.
+    Otherwise fall back to PW (46°) with a default slope.
+    """
+    pts: list[tuple[float, float]] = []
+    for a in anchors.values():
+        if a.category == "wedge" and a.loft_deg is not None:
+            pts.append((float(a.loft_deg), float(a.club_speed_mph)))
+
+    # Fit using wedge anchors (preferred)
+    if len(pts) >= 2:
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        n = len(xs)
+
+        xbar = sum(xs) / n
+        ybar = sum(ys) / n
+
+        denom = sum((x - xbar) ** 2 for x in xs)
+        if denom == 0:
+            return None
+
+        m = sum((x - xbar) * (y - ybar) for x, y in zip(xs, ys)) / denom
+        b = ybar - m * xbar
+
+        spd = m * float(target_loft) + b
+
+        # Clamp to within anchor speeds to prevent extreme extrapolation
+        ymin, ymax = min(ys), max(ys)
+        return max(min(spd, ymax), ymin)
+
+    # Fallback: PW slope if only PW exists
+    pw = anchors.get("PW (46°)")
+    if pw:
+        default_slope = 0.5  # mph per loft degree
+        return float(pw.club_speed_mph) - default_slope * (float(target_loft) - 46.0)
+
+    return None
+
+
 def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[float]:
     # Direct anchor
     if label in anchors:
@@ -106,12 +148,10 @@ def estimate_club_speed(label: str, anchors: dict[str, Anchor]) -> Optional[floa
         return anchors.get("Driver").club_speed_mph if anchors.get("Driver") else None
 
     if cat == "wedge":
-        # Wedge speed: anchor PW (46°) at 84 mph, drop ~1 mph per +2 loft
-        pw = anchors.get("PW (46°)")
         loft = parse_loft(label)
-        if not (pw and loft is not None):
+        if loft is None:
             return None
-        return pw.club_speed_mph - (loft - 46) * 0.5
+        return wedge_loft_to_speed(float(loft), anchors)
 
     if cat == "putter":
         return None
