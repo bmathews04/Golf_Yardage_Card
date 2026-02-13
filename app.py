@@ -19,14 +19,28 @@ st.set_page_config(page_title="Yardage Card", layout="wide")
 # ---------------------------
 st.markdown("""
 <style>
-/* Kill the extra whitespace at the very top */
-.block-container { padding-top: 0.15rem !important; }
-header[data-testid="stHeader"] { height: 0rem !important; }
-div[data-testid="stToolbar"] { visibility: hidden !important; height: 0rem !important; }
-#MainMenu { visibility: hidden; }
-footer { visibility: hidden; }
+/* --- Kill Streamlit chrome + reserved space (mobile Safari friendly) --- */
+header[data-testid="stHeader"] { display: none !important; }
+div[data-testid="stToolbar"] { display: none !important; }
+div[data-testid="stDecoration"] { display: none !important; }
+#MainMenu { display: none !important; }
+footer { display: none !important; }
 
-/* Tighten title/caption spacing */
+/* Make the app start at the very top */
+div[data-testid="stAppViewContainer"] > section.main { padding-top: 0rem !important; }
+div[data-testid="stAppViewContainer"] > section.main > div.block-container {
+  padding-top: 0rem !important;
+  margin-top: 0rem !important;
+}
+
+/* If iOS still shows a sliver, pull everything up slightly */
+@media (max-width: 768px){
+  div[data-testid="stAppViewContainer"] > section.main > div.block-container {
+    margin-top: -10px !important;
+  }
+}
+
+/* Tighten title spacing */
 h1 { margin-top: 0.0rem !important; margin-bottom: 0.15rem !important; }
 [data-testid="stCaptionContainer"] { margin-top: 0.0rem !important; margin-bottom: 0.5rem !important; }
 </style>
@@ -187,6 +201,33 @@ hr { border-color: var(--line) !important; }
   height: 100%;
   background: linear-gradient(90deg, var(--augusta-green), var(--augusta-green-dark));
   border-radius: 999px;
+}
+
+/* --- Tabs: stronger contrast + clearer active state --- */
+div[data-testid="stTabs"] button {
+  font-weight: 900 !important;
+  font-size: 0.95rem !important;
+  color: rgba(16,32,26,0.75) !important;
+  padding: 10px 12px !important;
+}
+
+div[data-testid="stTabs"] button[aria-selected="true"]{
+  color: #004c35 !important;
+  border-bottom: 3px solid #d4af37 !important;  /* gold underline */
+}
+
+div[data-testid="stTabs"] button[aria-selected="false"]{
+  opacity: 1 !important; /* prevent “faded out” look */
+}
+
+/* Optional: keep tab bar visible while scrolling */
+div[data-testid="stTabs"]{
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(251,247,239,0.95);
+  backdrop-filter: blur(6px);
+  padding-top: 4px;
 }
 
 .ycard.wedge { padding: 10px 12px; }
