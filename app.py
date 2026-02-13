@@ -167,6 +167,10 @@ hr { border-color: var(--line) !important; }
   color: rgba(16,32,26,0.68);
 }
 
+/* ✅ FIX: force every card to reserve space for the gap row (keeps last tile same height) */
+.gapline { min-height: 24px; }
+.gappill { min-height: 18px; }
+
 /* wedges: mini grid */
 .wgrid {
   display: grid;
@@ -232,6 +236,7 @@ div[data-testid="stTabs"] button[aria-selected="false"]{
 </style>
 """, unsafe_allow_html=True)
 
+# Wedge grid sizing helper (if you're using the 4-wide version)
 st.markdown("""
 <style>
 /* 4-wide wedge grid (Choke, 75, 50, 25) */
@@ -374,7 +379,8 @@ max_carry = float(driver_carry) if driver_carry else 1.0
 
 def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None):
     fill_pct = clamp01(fill_pct)
-    gap_html = f'<div class="gapline"><span class="gappill">{gap_text}</span></div>' if gap_text else ""
+
+    gap_safe = gap_text if gap_text else "&nbsp;"
     st.markdown(
         f"""
         <div class="ycard">
@@ -384,11 +390,12 @@ def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str
           </div>
           <div class="ysub">{sub}</div>
           <div class="barwrap"><div class="barfill" style="width:{fill_pct*100:.0f}%;"></div></div>
-          {gap_html}
+          <div class="gapline"><span class="gappill">{gap_safe}</span></div>
         </div>
         """,
         unsafe_allow_html=True
     )
+
 
 with tab_clubs:
     st.markdown('<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Clubs</h3></div>', unsafe_allow_html=True)
