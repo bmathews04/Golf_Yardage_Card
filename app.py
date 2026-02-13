@@ -279,6 +279,9 @@ p_shape = float(cfg["model"]["exponent_shape_p"])
 rollout_cfg = cfg.get("rollout_defaults_yd", {})
 wedges_cfg = cfg.get("wedges", {})
 choke_sub = float(wedges_cfg.get("choke_down_subtract_yd", 4))
+partials_cfg = wedges_cfg.get("partials", {})
+alpha = float(partials_cfg.get("alpha", 0.55))
+feel_map_cfg = partials_cfg.get("feel_map", {"75%": 0.75, "50%": 0.50, "25%": 0.25})
 
 ui = cfg.get("ui", {})
 presets = ui.get("presets", {})
@@ -464,7 +467,10 @@ with tab_clubs:
                 render_card(label, shown, sub, fill, gap_txt)
 
 with tab_wedges:
-    st.markdown('<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Wedges</h3></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Wedges</h3></div>',
+        unsafe_allow_html=True
+    )
     st.markdown('<div class="section-underline"></div>', unsafe_allow_html=True)
 
     wedge_labels = [x for x in bag if category_of(x) == "wedge"]
@@ -476,6 +482,7 @@ with tab_wedges:
     pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80}
     lbl_map = {"Choke-down": "Choke"}
 
+    # Non-linear "feel" boost (smaller exponent => longer partials vs linear)
     PARTIAL_K = {
         "75%": 0.92,
         "50%": 0.85,
@@ -556,7 +563,7 @@ with tab_wedges:
         # full-carry bar uses max_carry scaling
         fill = (carry_full / max_carry) if (carry_full is not None and max_carry) else 0.0
 
-        # ✅ Always reserve the gap row height (prevents last tile being shorter)
+        # Always reserve the gap row height (prevents last tile being shorter)
         gap_safe = gap_text if gap_text else "&nbsp;"
 
         st.markdown(
