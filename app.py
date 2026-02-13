@@ -299,24 +299,54 @@ def clamp01(x: float) -> float:
 # ---------------------------
 # Title
 # ---------------------------
-st.markdown('<div class="section-title"><div class="section-dot"></div><h1 style="margin:0;">Yardage Card</h1></div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="section-title"><div class="section-dot"></div><h1 style="margin:0;">Yardage Card</h1></div>',
+    unsafe_allow_html=True
+)
+st.caption("Tournament-mode: your modeled yardages only (no GPS, no conditions, no recommendations).")
 
 # ---------------------------
-# Controls (mobile-first)
+# Controls (collapsed into expander)
 # ---------------------------
+with st.expander("Adjust yardages", expanded=False):
+    chs_today = st.slider("Driver CHS (mph)", 90, 135, 105, 1)
 
-chs_today = st.slider("Driver CHS (mph)", 90, 135, 105, 1)
+    c1, c2 = st.columns([0.9, 1.8], vertical_alignment="center")
+    with c1:
+        offset = st.number_input("± (yd)", -25, 25, 0, 1)
+    with c2:
+        preset_names = list(presets.keys()) if presets else ["My Bag"]
+        preset_index = preset_names.index(default_preset) if default_preset in preset_names else 0
+        preset = st.selectbox("Preset", preset_names, index=preset_index)
+        bag_default = presets.get(preset, default_bag)
 
-c1, c2 = st.columns([0.9, 1.8], vertical_alignment="center")
-with c1:
-    offset = st.number_input("± (yd)", -25, 25, 0, 1)
-with c2:
+# If the expander hasn't run yet on first render, ensure defaults exist
+if "chs_today" not in locals():
+    chs_today = 105
+if "offset" not in locals():
+    offset = 0
+if "preset" not in locals():
     preset_names = list(presets.keys()) if presets else ["My Bag"]
-    preset_index = preset_names.index(default_preset) if default_preset in preset_names else 0
-    preset = st.selectbox("Preset", preset_names, index=preset_index)
+    preset = default_preset if default_preset in preset_names else preset_names[0]
+if "bag_default" not in locals():
     bag_default = presets.get(preset, default_bag)
 
-with st.expander("Customize clubs shown"):
+# Badges up top (always visible)
+st.markdown(
+    f"""
+    <div class="badges">
+      <div class="badge">CHS: {chs_today} mph</div>
+      <div class="badge">Offset: {offset:+.0f} yd</div>
+      <div class="badge">Preset: {preset}</div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# ---------------------------
+# Clubs shown (keep as-is)
+# ---------------------------
+with st.expander("Select Clubs", expanded=False):
     options = list(dict.fromkeys(catalog + bag_default))
     bag = st.multiselect("Clubs", options=options, default=bag_default)
 
