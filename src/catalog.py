@@ -1,4 +1,7 @@
-def build_full_catalog(wedge_lofts=(40, 64)) -> list[str]:
+def wedge_label(name: str, loft: int) -> str:
+    return f"{name} ({loft}°)"
+
+def build_full_catalog() -> list[str]:
     clubs: list[str] = []
 
     # Woods
@@ -14,16 +17,23 @@ def build_full_catalog(wedge_lofts=(40, 64)) -> list[str]:
     # Irons
     clubs += [f"{n}i" for n in range(1, 10)]
 
-    # Named wedges (name + loft handled in config for user’s set)
-    clubs += ["PW", "GW", "SW", "LW"]
+    # Named wedges with common loft defaults (still selectable even if player differs)
+    clubs += [
+        wedge_label("PW", 46),
+        wedge_label("GW", 50),
+        wedge_label("SW", 54),
+        wedge_label("SW", 56),
+        wedge_label("LW", 58),
+        wedge_label("LW", 60),
+    ]
 
-    # Loft wedges (full coverage)
-    clubs += [f"Wedge ({d}°)" for d in range(wedge_lofts[0], wedge_lofts[1] + 1)]
+    # Full wedge loft coverage as named generic wedges too (tournament bags vary)
+    clubs += [f"Wedge ({d}°)" for d in range(40, 65)]
 
-    # Putter (optional completeness)
+    # Putter
     clubs += ["Putter"]
 
-    # De-dupe while preserving order
+    # De-dupe preserving order
     seen = set()
     ordered = []
     for c in clubs:
