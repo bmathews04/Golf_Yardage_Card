@@ -1,170 +1,181 @@
 from pathlib import Path
-import pandas as pd
 import streamlit as st
+import yaml
 
-from src.io import load_config
-from src.model import responsiveness_exponent, scaled_carry, format_num
 from src.catalog import build_full_catalog
+from src.estimates import (
+    Anchor, anchors_by_label,
+    estimate_club_speed, estimate_carry_from_speed,
+    responsiveness_exponent, scaled_carry, rollout_for, category_of, parse_loft
+)
 
 st.set_page_config(page_title="Yardage Card", layout="wide")
 
 CFG_PATH = Path("data/config.yaml")
-cfg = load_config(CFG_PATH)
 
-baseline_driver_chs = float(cfg["baseline"]["driver_chs_mph"])
+@st.cache_data
+def load_cfg():
+    with CFG_PATH.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+cfg = load_cfg()
+
+# --- CSS for phone-friendly cards ---
+st.markdown("""
+<style>
+.block-container { padding-top: 0.8rem; padding-bottom: 4rem; }
+div[data-testid="stMetric"] { border-radius: 16px; padding: 10px 12px; }
+.ycard { padding: 14px 14px; border: 1px solid rgba(255,255,255,0.10); border-radius: 18px; margin-bottom: 10px; }
+.yrow { display:flex; justify-content: space-between; gap: 10px; }
+.yclub { font-size: 1.05rem; font-weight: 700; }
+.yvals { font-size: 1.15rem; font-weight: 800; }
+.ysub { opacity: 0.75; font-size: 0.85rem; margin-top: 2px; }
+</style>
+""", unsafe_allow_html=True)
+
+baseline_chs0 = float(cfg["baseline"]["driver_chs_mph"])
 p_shape = float(cfg["model"]["exponent_shape_p"])
-rollout_defaults = cfg.get("rollout_defaults_yd", {})
+rollout_cfg = cfg.get("rollout_defaults_yd", {})
+wedges_cfg = cfg.get("wedges", {})
+choke_sub = float(wedges_cfg.get("choke_down_subtract_yd", 4))
+
 ui = cfg.get("ui", {})
-aliases = ui.get("baseline_aliases", {})
+presets = ui.get("presets", {})
+default_preset = ui.get("default_preset", "My Bag")
+default_bag = presets.get(default_preset, ui.get("default_bag", []))
 
-# Build baseline lookup by label
-baseline_rows = cfg["baseline"]["clubs"]
-baseline_by_label = {r["label"]: r for r in baseline_rows}
+# Anchors
+anchors_raw = cfg["baseline"]["anchors"]
+anchors = [Anchor(
+    label=a["label"],
+    club_speed_mph=float(a["club_speed_mph"]),
+    carry_yd=float(a["carry_yd"]),
+    category=a["category"],
+    loft_deg=a.get("loft_deg")
+) for a in anchors_raw]
+anchor_map = anchors_by_label(anchors)
 
-# Wedge set (name + loft)
-wedge_set = [w["label"] for w in cfg.get("wedges", {}).get("catalog", [])]
+catalog = build_full_catalog()
 
-# Full catalog for multiselect
-full_catalog = build_full_catalog()
-
-# --- Header ---
 st.title("⛳ Yardage Card")
-st.caption("Tournament-mode yardage card: no GPS, no conditions, no recommendations.")
+st.caption("Tournament-mode: your modeled yardages only (no GPS, no conditions, no recommendations).")
 
-# --- Inputs ---
-col1, col2, col3 = st.columns([2, 2, 2], vertical_alignment="center")
-
-with col1:
-    chs_today = st.slider("Driver CHS today (mph)", min_value=90, max_value=135, value=int(baseline_driver_chs), step=1)
-
-with col2:
-    view = st.segmented_control("View", options=["Carry", "Carry + Total"], default="Carry")
-
-with col3:
-    manual_offset = st.number_input("Manual ± (yd)", min_value=-25, max_value=25, value=0, step=1)
-
-# Choke-down
-choke_cfg = cfg.get("wedges", {}).get("choke_down", {})
-cd_default = int(choke_cfg.get("subtract_yd_default", 4))
-cd_min, cd_max = choke_cfg.get("allowed_range_yd", [3, 5])
-
-c1, c2 = st.columns([1, 2], vertical_alignment="center")
+# Inputs row
+c1, c2, c3 = st.columns([2, 2, 2], vertical_alignment="center")
 with c1:
-    choke_on = st.toggle("Choke-down", value=False)
+    chs_today = st.slider("Driver CHS (mph)", 90, 135, int(baseline_chs0), 1)
 with c2:
-    choke_sub = st.slider("Choke-down subtract (yd)", min_value=int(cd_min), max_value=int(cd_max), value=cd_default, step=1, disabled=not choke_on)
+    view = st.segmented_control("View", ["Carry", "Carry + Total"], default="Carry")
+with c3:
+    offset = st.number_input("Manual ± (yd)", -25, 25, 0, 1)
 
-st.divider()
-
-# --- Clubs to display (preset + customize) ---
-default_bag = ui.get("default_bag", [])
-st.subheader("Bag")
-
-preset_col, custom_col = st.columns([2, 3], vertical_alignment="center")
-with preset_col:
-    st.write("**Default bag loaded** (you can customize below).")
-
-with custom_col:
+# Bag preset
+p1, p2 = st.columns([2, 3], vertical_alignment="center")
+with p1:
+    preset_names = list(presets.keys()) if presets else ["My Bag"]
+    preset = st.selectbox("Preset", preset_names, index=preset_names.index(default_preset) if default_preset in preset_names else 0)
+    bag_default = presets.get(preset, default_bag)
+with p2:
     with st.expander("Customize clubs shown"):
-        selected = st.multiselect(
-            "Select clubs to display",
-            options=sorted(set(full_catalog + default_bag + wedge_set)),
-            default=default_bag,
-        )
-else_selected = default_bag  # if expander not used, we still show default
-
-# If user didn’t open expander, selected variable won't exist; handle both cases.
-clubs_to_show = locals().get("selected", else_selected)
-
-# Ensure wedge labels with loft are present if in default bag
-# (already are, but keep safe)
-clubs_to_show = [c for c in clubs_to_show if c]
-
-# --- Compute yardages ---
-rows = []
-missing = []
-
-for label in clubs_to_show:
-    base_label = aliases.get(label, label)
-    b = baseline_by_label.get(base_label)
-
-    if not b:
-        # No baseline at all
-        rows.append({"Club": label, "Carry": None, "Total": None, "Notes": "No baseline set"})
-        missing.append(label)
-        continue
-
-    carry0 = b.get("carry_yd")
-    cs0 = b.get("club_speed_mph")
-    if carry0 is None or cs0 is None:
-        rows.append({"Club": label, "Carry": None, "Total": None, "Notes": "Baseline incomplete"})
-        missing.append(label)
-        continue
-
-    g = responsiveness_exponent(float(cs0), baseline_driver_chs, p_shape)
-    carry_today = scaled_carry(float(carry0), float(chs_today), baseline_driver_chs, g)
-    carry_today += float(manual_offset)
-    if choke_on:
-        carry_today -= float(choke_sub)
-
-    rollout = float(rollout_defaults.get(base_label, 0))
-    total_today = carry_today + rollout  # rollout held constant for now
-    # manual offset already applied to carry; we keep total consistent via carry + rollout
-    # choke-down applied via carry reduction above
-
-    rows.append({
-        "Club": label,
-        "Carry": carry_today,
-        "Total": total_today,
-        "Notes": "" if label == base_label else f"Uses baseline: {base_label}"
-    })
-
-df = pd.DataFrame(rows)
-
-# --- Display main table ---
-st.subheader("Yardages")
-
-if view == "Carry":
-    out = df[["Club", "Carry", "Notes"]].copy()
-else:
-    out = df[["Club", "Carry", "Total", "Notes"]].copy()
-
-# Format numbers for glanceability
-for col in ["Carry", "Total"]:
-    if col in out.columns:
-        out[col] = out[col].apply(lambda x: None if pd.isna(x) else float(x))
-        out[col] = out[col].apply(format_num)
-
-st.dataframe(out, use_container_width=True, hide_index=True)
-
-if missing:
-    st.info("Some clubs have no baseline yet (shown as —). You can add baseline carry/club speed in data/config.yaml later.")
+        bag = st.multiselect("Clubs", options=sorted(set(catalog + bag_default)), default=bag_default)
+if "bag" not in locals():
+    bag = bag_default
 
 st.divider()
 
-# --- Wedge partials table ---
-partials = cfg.get("wedges", {}).get("partials", {})
-scheme = partials.get("scheme", [])
-partial_map = partials.get("carry_yd", {})
+# Helper: compute baseline for any label
+def compute_baseline(label: str):
+    # If label is exactly an anchor, use it
+    if label in anchor_map:
+        a = anchor_map[label]
+        return a.club_speed_mph, a.carry_yd
 
-if scheme and partial_map:
-    st.subheader("Wedge partials (carry)")
-    prow = []
-    for wedge_label, splits in partial_map.items():
-        row = {"Wedge": wedge_label}
-        for key in scheme:
-            val = splits.get(key, None)
-            # Partials do NOT scale with CHS by default (tournament-friendly & realistic).
-            if val is None:
-                row[key] = "—"
+    # Allow "3H" etc by estimating speed and then carry from fitted curve
+    spd = estimate_club_speed(label, anchor_map)
+    if spd is None:
+        return None, None
+    carry = estimate_carry_from_speed(spd, anchors)
+    return float(spd), float(carry)
+
+def compute_today(label: str):
+    spd0, carry0 = compute_baseline(label)
+    if spd0 is None or carry0 is None:
+        return None, None
+
+    g = responsiveness_exponent(spd0, baseline_chs0, p_shape)
+    carry = scaled_carry(carry0, float(chs_today), baseline_chs0, g) + float(offset)
+    rollout = rollout_for(label, rollout_cfg)
+    total = carry + rollout
+    return carry, total
+
+# --- Clubs section (cards) ---
+st.subheader("Clubs")
+
+for label in bag:
+    if label == "Putter":
+        continue
+    cat = category_of(label)
+    if cat == "wedge":
+        # show wedges in wedge section only
+        continue
+
+    carry, total = compute_today(label)
+    if carry is None:
+        shown = "—"
+        sub = "No model"
+    else:
+        shown = f"{carry:.0f}" if view == "Carry" else f"{carry:.0f} / {total:.0f}"
+        sub = "Carry" if view == "Carry" else "Carry / Total"
+
+    st.markdown(
+        f"""
+        <div class="ycard">
+          <div class="yrow">
+            <div class="yclub">{label}</div>
+            <div class="yvals">{shown}</div>
+          </div>
+          <div class="ysub">{sub}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+st.divider()
+
+# --- Wedges section ---
+st.subheader("Wedges")
+
+# Build wedge list from whatever wedges exist in your bag; if none, show common defaults
+wedge_labels = [x for x in bag if category_of(x) == "wedge"]
+if not wedge_labels:
+    wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
+
+partials_cfg = wedges_cfg.get("partials", {})
+scheme = partials_cfg.get("scheme", ["25%", "50%", "75%", "Choke-down", "100%"])
+pct_map = partials_cfg.get("percent_map", {"25%": 0.40, "50%": 0.60, "75%": 0.80, "100%": 1.00})
+
+# Render a phone-friendly wedge table using columns
+header = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
+header[0].markdown("**Wedge**")
+for i, k in enumerate(scheme, start=1):
+    header[i].markdown(f"**{k}**")
+
+for w in wedge_labels:
+    carry_full, total_full = compute_today(w)  # full swing modeled
+    if carry_full is None:
+        vals = ["—"] * len(scheme)
+    else:
+        # Build partials as fractions of the (modeled) full carry
+        vals = []
+        for k in scheme:
+            if k == "Choke-down":
+                # choke-down is full swing carry - configured subtract
+                vals.append(f"{(carry_full - choke_sub):.0f}")
             else:
-                v = float(val) + float(manual_offset)
-                if choke_on:
-                    v -= float(choke_sub)
-                row[key] = f"{v:.0f}"
-        prow.append(row)
+                frac = float(pct_map.get(k, 1.0))
+                vals.append(f"{(carry_full * frac):.0f}")
 
-    pdf = pd.DataFrame(prow)
-    st.dataframe(pdf, use_container_width=True, hide_index=True)
-else:
-    st.info("No wedge partial scheme found in config.")
+    row = st.columns([2, 1, 1, 1, 1, 1], vertical_alignment="center")
+    row[0].write(w)
+    for i, v in enumerate(vals, start=1):
+        row[i].write(v)
