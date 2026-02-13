@@ -117,6 +117,10 @@ hr { border-color: var(--line) !important; }
   font-size: 0.78rem;
   font-weight: 800;
   color: rgba(16,32,26,0.75);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* cards */
@@ -204,30 +208,24 @@ hr { border-color: var(--line) !important; }
 }
 
 /* --- Tabs: stronger contrast + clearer active state --- */
-div[data-testid="stTabs"] button {
-  font-weight: 900 !important;
-  font-size: 0.95rem !important;
-  color: rgba(16,32,26,0.75) !important;
-  padding: 10px 12px !important;
-}
-
 div[data-testid="stTabs"] button[aria-selected="true"]{
   color: #004c35 !important;
   border-bottom: 3px solid #d4af37 !important;  /* gold underline */
 }
-
 div[data-testid="stTabs"] button[aria-selected="false"]{
   opacity: 1 !important; /* prevent “faded out” look */
 }
 
-/* Optional: keep tab bar visible while scrolling */
-div[data-testid="stTabs"]{
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(251,247,239,0.95);
-  backdrop-filter: blur(6px);
-  padding-top: 4px;
+/* Sticky ONLY on larger screens (mobile Safari can break scroll with big tables) */
+@media (min-width: 900px){
+  div[data-testid="stTabs"]{
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(251,247,239,0.95);
+    backdrop-filter: blur(6px);
+    padding-top: 4px;
+  }
 }
 
 .ycard.wedge { padding: 10px 12px; }
@@ -330,18 +328,6 @@ if "preset" not in locals():
 if "bag_default" not in locals():
     bag_default = presets.get(preset, default_bag)
 
-# Badges up top (always visible)
-st.markdown(
-    f"""
-    <div class="badges">
-      <div class="badge">CHS: {chs_today} mph</div>
-      <div class="badge">Offset: {offset:+.0f} yd</div>
-      <div class="badge">Preset: {preset}</div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
 # ---------------------------
 # Clubs shown (keep as-is)
 # ---------------------------
@@ -352,12 +338,26 @@ with st.expander("Select Clubs", expanded=False):
 if not bag:
     bag = bag_default
 
+# Badges up top (always visible) — render once (after bag exists)
+bag_badge = ", ".join(bag) if bag else "—"
+st.markdown(
+    f"""
+    <div class="badges">
+      <div class="badge">CHS: {chs_today} mph</div>
+      <div class="badge">Offset: {offset:+.0f} yd</div>
+      <div class="badge">Preset: {preset}</div>
+      <div class="badge">Bag: {bag_badge}</div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 st.divider()
 
 # ---------------------------
-# Tabs
+# Tabs (add Debug as 3rd tab)
 # ---------------------------
-tab_clubs, tab_wedges = st.tabs(["Clubs", "Wedges"])
+tab_clubs, tab_wedges, tab_debug = st.tabs(["Clubs", "Wedges", "Debug"])
 
 # Precompute driver carry for bar scaling
 driver_carry, _ = compute_today("Driver", chs_today, offset)
@@ -394,11 +394,11 @@ with tab_clubs:
         sort_carry = carry if carry is not None else -1e9  # no-model goes bottom
         club_vals.append((label, carry, total, sort_carry))
 
-    # Sort by carry desc (Driver -> long -> short)
+    # Sort by carry desc
     club_vals.sort(key=lambda x: x[3], reverse=True)
     clubs_sorted = [x[0] for x in club_vals]
 
-    # Gap to next club in the sorted list (skip no-models)
+    # Gap to next club in sorted list (skip no-models)
     gap_map = {}
     for i, (label, carry, total, _) in enumerate(club_vals):
         if carry is None:
@@ -414,7 +414,7 @@ with tab_clubs:
             gap = carry - nxt_carry
             gap_map[label] = f"Gap to next: +{gap:.0f} yd"
 
-    # Render in sorted order (two-up)
+    # Render two-up
     for i in range(0, len(clubs_sorted), 2):
         left, right = st.columns(2, gap="small")
         for col, label in zip([left, right], clubs_sorted[i:i+2]):
@@ -452,9 +452,7 @@ with tab_wedges:
                 vals[k] = full_carry * float(pct_map[k])
         return vals
 
-    # ---------------------------
-    # SORT wedges by modeled full carry (desc)
-    # ---------------------------
+    # Sort wedges by modeled full carry (desc)
     wedge_vals = []
     for w in wedge_labels:
         carry_full, total_full = compute_today(w, chs_today, offset)
@@ -464,9 +462,7 @@ with tab_wedges:
     wedge_vals.sort(key=lambda x: x[3], reverse=True)
     wedge_labels_sorted = [x[0] for x in wedge_vals]
 
-    # ---------------------------
-    # OPTIONAL: gap to next wedge (desc carry list)
-    # ---------------------------
+    # Gap to next wedge
     wedge_gap_map = {}
     for i, (label, carry_full, total_full, _) in enumerate(wedge_vals):
         if carry_full is None:
@@ -538,9 +534,14 @@ with tab_wedges:
                 render_wedge_card(label, gap_text=wedge_gap_map.get(label))
 
 # ---------------------------
-# Debug / Validation (FULL CATALOG)
+# Debug / Validation tab (FULL CATALOG)
 # ---------------------------
-with st.expander("Debug / Validation (Full Catalog)", expanded=False):
+with tab_debug:
+    st.markdown('<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Debug</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-underline"></div>', unsafe_allow_html=True)
+
+    st.caption("Calibration + sanity checks. Leave disabled during play.")
+
     enable_debug = st.checkbox("Enable debug output", value=False)
     if enable_debug:
         st.markdown("### Inputs")
@@ -552,16 +553,15 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
             "catalog_clubs": len(catalog),
         })
 
-        # Tunable thresholds (feel free to tweak)
         TH = {
-            "gap_small": 4,        # yds
-            "gap_large_irons": 18, # yds
-            "gap_large_woods": 25, # yds
+            "gap_small": 4,
+            "gap_large_irons": 18,
+            "gap_large_woods": 25,
             "rollout_driver_max": 45,
             "rollout_driver_min": 5,
             "rollout_iron_max": 22,
             "rollout_iron_min": 0,
-            "monotonic_tol": 0.1,  # yds
+            "monotonic_tol": 0.1,
         }
 
         def bucket(label: str) -> str:
@@ -570,7 +570,6 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
                 return "wedge"
             if cat == "putter":
                 return "putter"
-            # crude bucket by label
             if label == "Driver":
                 return "driver"
             if "Wood" in label or label.endswith("W"):
@@ -581,9 +580,7 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
                 return "utility"
             return "iron"
 
-        # -----------------------------------
         # 1) FULL catalog table (carry/total/rollout + flags)
-        # -----------------------------------
         st.markdown("### Modeled yardages (Full catalog)")
 
         rows = []
@@ -615,7 +612,6 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
                 flags.append("non_positive")
                 actions.append("Check anchors / scaling logic; carry should be positive.")
 
-            # rollout sanity by bucket
             if b in ("driver", "wood"):
                 if rollout < TH["rollout_driver_min"]:
                     flags.append("rollout_low")
@@ -641,18 +637,13 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
                 "action": " | ".join(actions) if actions else ""
             })
 
-        # sort by carry desc (None at bottom)
         rows.sort(key=lambda r: (r["carry"] is None, -(r["carry"] or -1e9)))
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, use_container_width=True, hide_index=True, height=380)
 
-        # -----------------------------------
-        # 2) Gapping checks (by bucket, sorted)
-        # -----------------------------------
+        # 2) Gapping checks
         st.markdown("### Gapping checks (sorted by carry)")
 
-        # Keep only modeled rows
         modeled = [r for r in rows if r["carry"] is not None]
-        # For gapping, include all non-putter clubs
         gaps = []
         for i in range(len(modeled) - 1):
             a = modeled[i]
@@ -661,7 +652,6 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
             flags = []
             actions = []
 
-            # bucket-aware large gap thresholds
             large_thr = TH["gap_large_irons"]
             if a["bucket"] in ("driver", "wood") or b["bucket"] in ("driver", "wood"):
                 large_thr = TH["gap_large_woods"]
@@ -681,14 +671,11 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
                 "action": " | ".join(actions) if actions else ""
             })
 
-        # show only flagged by default
         show_all_gaps = st.checkbox("Show all gaps (including unflagged)", value=False)
         gaps_to_show = gaps if show_all_gaps else [g for g in gaps if g["flags"]]
-        st.dataframe(gaps_to_show, use_container_width=True, hide_index=True)
+        st.dataframe(gaps_to_show, use_container_width=True, hide_index=True, height=360)
 
-        # -----------------------------------
-        # 3) Wedge partial checks (monotonic, choke-down sanity)
-        # -----------------------------------
+        # 3) Wedge partial checks
         st.markdown("### Wedge partial validation")
 
         scheme = ["100%", "Choke-down", "75%", "50%", "25%"]
@@ -698,7 +685,8 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
         for label in catalog:
             if category_of(label) != "wedge":
                 continue
-            carry_full, total_full = compute_today(label, chs_today, offset)
+
+            carry_full, _ = compute_today(label, chs_today, offset)
             if carry_full is None:
                 wedge_rows.append({
                     "wedge": label, "full_carry": None, "flags": "no_model",
@@ -720,7 +708,6 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
                 flags.append("choke>100")
                 actions.append("Increase choke_down_subtract_yd in config.")
 
-            # Monotonic check (100 should be highest; 25 lowest)
             order = [vals["100%"], vals["75%"], vals["50%"], vals["25%"]]
             if not all(order[i] >= order[i+1] - TH["monotonic_tol"] for i in range(len(order)-1)):
                 flags.append("partials_non_monotonic")
@@ -739,11 +726,9 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
             })
 
         wedge_rows.sort(key=lambda r: (r["full_carry"] is None, -(r["full_carry"] or -1e9)))
-        st.dataframe(wedge_rows, use_container_width=True, hide_index=True)
+        st.dataframe(wedge_rows, use_container_width=True, hide_index=True, height=380)
 
-        # -----------------------------------
         # 4) Curve/response checks at multiple CHS points
-        # -----------------------------------
         st.markdown("### Response check (multi-CHS sanity)")
 
         chs_points = st.multiselect(
@@ -752,29 +737,26 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
             default=[95, 105, 115]
         )
 
-        # pick a smaller set for speed (top N by carry at current CHS + wedges)
         top_n = st.slider("How many clubs to test (top by carry)", 5, 30, 14, 1)
 
         sample_labels = [r["club"] for r in modeled[:top_n]]
-        # always include wedges in sample
         sample_labels += [w for w in catalog if category_of(w) == "wedge"]
-        # unique preserve order
+
         seen = set()
         sample_labels = [x for x in sample_labels if not (x in seen or seen.add(x))]
 
         resp_rows = []
         for label in sample_labels:
-            # compute carry at each chs
             carries = []
             for chs in chs_points:
-                c, t = compute_today(label, float(chs), offset)
+                c, _ = compute_today(label, float(chs), offset)
                 carries.append(c)
 
             flags = []
             actions = []
-            # monotonic increasing with CHS
+
             ok = True
-            for i in range(len(carries)-1):
+            for i in range(len(carries) - 1):
                 if carries[i] is None or carries[i+1] is None:
                     ok = False
                     break
@@ -786,7 +768,6 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
                 flags.append("non_monotonic_vs_chs")
                 actions.append("Check responsiveness_exponent() / exponent_shape_p or speed estimation mapping.")
 
-            # crude “too sensitive” check: 105->115 delta for irons/wedges
             if 105 in chs_points and 115 in chs_points:
                 try:
                     i105 = chs_points.index(105)
@@ -809,9 +790,6 @@ with st.expander("Debug / Validation (Full Catalog)", expanded=False):
             row["action"] = " | ".join(actions) if actions else ""
             resp_rows.append(row)
 
-        # show only flagged by default
         show_all_resp = st.checkbox("Show all response rows (including unflagged)", value=False)
         resp_to_show = resp_rows if show_all_resp else [r for r in resp_rows if r["flags"]]
-        st.dataframe(resp_to_show, use_container_width=True, hide_index=True)
-
-        st.caption("Debug is for calibration + sanity only. Keep it collapsed during play.")
+        st.dataframe(resp_to_show, use_container_width=True, hide_index=True, height=420)
