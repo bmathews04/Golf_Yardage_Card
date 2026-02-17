@@ -476,7 +476,7 @@ st.markdown(
       <div class="badge">CHS: {chs_today} mph</div>
       <div class="badge">Offset: {offset:+.0f} yd</div>
       <div class="badge">Preset: {preset}</div>
-      <div class="badge">Bag: {bag_badge}</div>
+     -- <div class="badge">Bag: {bag_badge}</div>
     </div>
     """,
     unsafe_allow_html=True
