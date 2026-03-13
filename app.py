@@ -1,5 +1,6 @@
 from pathlib import Path
 import streamlit as st
+import streamlit.components.v1 as components
 import yaml
 
 from src.catalog import build_full_catalog
@@ -136,7 +137,7 @@ hr { border-color: var(--line) !important; }
   background: rgba(255,255,255,0.75);
   backdrop-filter: blur(4px);
   border-radius: 16px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   box-shadow: 0 1px 0 rgba(0,0,0,0.03);
   position: relative;
   overflow: hidden;
@@ -154,6 +155,20 @@ hr { border-color: var(--line) !important; }
   left:0; top:0;
   width:100%; height:40%;
   background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.0));
+  pointer-events:none;
+}
+
+/* selected card state */
+.ycard.selected{
+  border-color: rgba(232,106,163,0.28);
+  box-shadow: 0 8px 24px rgba(232,106,163,0.09);
+}
+.ycard.selected:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:16px;
+  box-shadow: inset 0 0 0 1px rgba(232,106,163,0.12);
   pointer-events:none;
 }
 
@@ -250,7 +265,7 @@ hr { border-color: var(--line) !important; }
   border-radius: 999px;
 }
 
-/* --- Tabs: classy pill treatment + clear active state --- */
+/* --- Tabs --- */
 div[data-testid="stTabs"] button{
   border-radius: 999px !important;
   padding: 6px 12px !important;
@@ -268,7 +283,6 @@ div[data-testid="stTabs"] button[aria-selected="false"]{
   opacity: 1 !important;
 }
 
-/* Sticky ONLY on larger screens (mobile Safari can break scroll with big tables) */
 @media (min-width: 900px){
   div[data-testid="stTabs"]{
     position: sticky;
@@ -284,7 +298,7 @@ div[data-testid="stTabs"] button[aria-selected="false"]{
 
 /* Shot pattern panel */
 .pattern-shell{
-  margin-top: 8px;
+  margin-top: 6px;
   padding: 14px 14px 12px 14px;
   border: 1px solid rgba(16,32,26,0.10);
   border-left: 6px solid var(--azalea-pink);
@@ -352,13 +366,43 @@ div[data-testid="stTabs"] button[aria-selected="false"]{
 @media (max-width: 768px){
   .pattern-stats{ grid-template-columns: 1fr; }
 }
+
+/* inline shot pattern wrapper */
+.pattern-inline-shell{
+  margin-top: 0px;
+  margin-bottom: 10px;
+}
+
+/* subtle chevron toggle under cards */
+.pattern-toggle-wrap{
+  display:flex;
+  justify-content:center;
+  margin-top:-2px;
+  margin-bottom:8px;
+}
+
+/* try to style the toggle button cleanly */
+div.stButton > button[kind="tertiary"]{
+  border: none !important;
+  background: transparent !important;
+  color: rgba(16,32,26,0.52) !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  padding: 0.10rem 0.35rem !important;
+  min-height: 1.1rem !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+}
+div.stButton > button[kind="tertiary"]:hover{
+  color: var(--augusta-green-dark) !important;
+  background: transparent !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# Wedge grid sizing helper (if you're using the 4-wide version)
+# Wedge grid sizing helper
 st.markdown("""
 <style>
-/* 4-wide wedge grid (Choke, 75, 50, 25) */
 .wgrid.wgrid4{
   grid-template-columns: repeat(4, 1fr) !important;
 }
@@ -521,7 +565,7 @@ if "bag_default" not in locals():
     bag_default = presets.get(preset, default_bag)
 
 # ---------------------------
-# Clubs shown (keep as-is)
+# Clubs shown
 # ---------------------------
 with st.expander("Select Clubs", expanded=False):
     options = list(dict.fromkeys(catalog + bag_default))
@@ -530,7 +574,7 @@ with st.expander("Select Clubs", expanded=False):
 if not bag:
     bag = bag_default
 
-# Badges up top (always visible)
+# Badges up top
 st.markdown(
     f"""
     <div class="badges">
@@ -556,43 +600,44 @@ max_carry = float(driver_carry) if driver_carry else 1.0
 # ---------------------------
 if "shot_pattern_label" not in st.session_state:
     st.session_state.shot_pattern_label = None
-if "shot_pattern_shape" not in st.session_state:
-    st.session_state.shot_pattern_shape = "Straight"
 
-def select_shot_pattern(label: str):
-    st.session_state.shot_pattern_label = label
+def toggle_shot_pattern(label: str):
+    current = st.session_state.get("shot_pattern_label")
+    st.session_state.shot_pattern_label = None if current == label else label
 
-def render_shot_pattern_panel(section_labels: list[str]):
-    selected = st.session_state.get("shot_pattern_label")
-    if not selected or selected not in section_labels:
-        return
-
-    carry, total = compute_today(selected, chs_today, offset)
+def render_inline_shot_pattern(label: str):
+    carry, total = compute_today(label, chs_today, offset)
     if carry is None or total is None:
-        st.info(f"Shot pattern is unavailable for {selected} because this club does not have a modeled yardage yet.")
+        st.info(f"Shot pattern is unavailable for {label} because this club does not have a modeled yardage yet.")
         return
 
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-    st.markdown("#### Shot Pattern")
+    st.markdown('<div class="pattern-inline-shell">', unsafe_allow_html=True)
 
-    top_l, top_r = st.columns([1.0, 0.36], vertical_alignment="center")
+    top_l, top_r = st.columns([1.0, 0.28], vertical_alignment="center")
     with top_l:
         shape = st.radio(
-            "Shot shape",
+            f"Shot shape for {label}",
             ["Straight", "Fade", "Draw"],
-            key=f"shape_{selected}",
+            key=f"shape_{label}",
             horizontal=True,
             label_visibility="collapsed",
         )
     with top_r:
-        if st.button("Clear", key=f"clear_pattern_{selected}", use_container_width=True):
+        if st.button("Clear", key=f"clear_pattern_{label}", use_container_width=True):
             st.session_state.shot_pattern_label = None
             st.rerun()
 
-    pattern = simulate_shot_pattern(selected, carry, total, shape=shape, n=220, seed=11)
-    st.markdown(render_shot_pattern_svg(selected, shape, carry, total, pattern), unsafe_allow_html=True)
+    pattern = simulate_shot_pattern(label, carry, total, shape=shape, n=220, seed=11)
 
-def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None):
+    components.html(
+        render_shot_pattern_svg(label, shape, carry, total, pattern),
+        height=560,
+        scrolling=False,
+    )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None, selected: bool = False):
     fill_pct = clamp01(fill_pct)
 
     loft_txt = loft_text_for(label)
@@ -603,10 +648,11 @@ def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str
     )
 
     gap_safe = gap_text if gap_text else "&nbsp;"
+    selected_cls = " selected" if selected else ""
 
     st.markdown(
         f"""
-        <div class="ycard">
+        <div class="ycard{selected_cls}">
           <div class="yrow">
             <div class="yclub">{label_html}</div>
             <div class="yvals">{shown}</div>
@@ -663,16 +709,23 @@ with tab_clubs:
                 gap_txt = gap_map.get(label)
 
             with col:
-                render_card(label, shown, sub, fill, gap_txt)
-                st.button(
-                    f"Open {label} pattern",
-                    key=f"club_pattern_{label}",
-                    on_click=select_shot_pattern,
-                    args=(label,),
-                    use_container_width=True,
-                )
+                is_open = st.session_state.get("shot_pattern_label") == label
+                chevron = "⌃" if is_open else "⌄"
 
-    render_shot_pattern_panel(clubs_sorted)
+                render_card(label, shown, sub, fill, gap_txt, selected=is_open)
+
+                st.markdown('<div class="pattern-toggle-wrap">', unsafe_allow_html=True)
+                st.button(
+                    chevron,
+                    key=f"club_pattern_toggle_{label}",
+                    on_click=toggle_shot_pattern,
+                    args=(label,),
+                    type="tertiary",
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                if is_open:
+                    render_inline_shot_pattern(label)
 
 with tab_wedges:
     st.markdown(
@@ -730,7 +783,7 @@ with tab_wedges:
             gap = carry_full - nxt_carry
             wedge_gap_map[label] = f"Gap to next: +{gap:.0f} yd"
 
-    def render_wedge_card(label: str, gap_text: str | None = None):
+    def render_wedge_card(label: str, gap_text: str | None = None, selected: bool = False):
         carry_full, total_full = compute_today(label, chs_today, offset)
 
         if carry_full is None:
@@ -764,10 +817,11 @@ with tab_wedges:
 
         fill = (carry_full / max_carry) if (carry_full is not None and max_carry) else 0.0
         gap_safe = gap_text if gap_text else "&nbsp;"
+        selected_cls = " selected" if selected else ""
 
         st.markdown(
             f"""
-            <div class="ycard wedge">
+            <div class="ycard wedge{selected_cls}">
               <div class="yrow">
                 <div class="yclub">{label}</div>
                 <div class="yvals">{shown}</div>
@@ -785,16 +839,23 @@ with tab_wedges:
         left, right = st.columns(2, gap="small")
         for col, label in zip([left, right], wedge_labels_sorted[i:i+2]):
             with col:
-                render_wedge_card(label, gap_text=wedge_gap_map.get(label))
-                st.button(
-                    f"Open {label} pattern",
-                    key=f"wedge_pattern_{label}",
-                    on_click=select_shot_pattern,
-                    args=(label,),
-                    use_container_width=True,
-                )
+                is_open = st.session_state.get("shot_pattern_label") == label
+                chevron = "⌃" if is_open else "⌄"
 
-    render_shot_pattern_panel(wedge_labels_sorted)
+                render_wedge_card(label, gap_text=wedge_gap_map.get(label), selected=is_open)
+
+                st.markdown('<div class="pattern-toggle-wrap">', unsafe_allow_html=True)
+                st.button(
+                    chevron,
+                    key=f"wedge_pattern_toggle_{label}",
+                    on_click=toggle_shot_pattern,
+                    args=(label,),
+                    type="tertiary",
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                if is_open:
+                    render_inline_shot_pattern(label)
 
 # ---------------------------
 # Debug / Validation tab (FULL CATALOG)
