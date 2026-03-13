@@ -252,45 +252,27 @@ hr { border-color: var(--line) !important; }
 
 .ycard.wedge { padding: 10px 12px; }
 
-/* Shot pattern area */
+/* Shot pattern controls */
 .pattern-controls{
-  padding: 12px 14px;
+  padding: 14px 16px 12px 16px;
   border: 1px solid rgba(16,32,26,0.08);
-  border-radius: 16px;
-  background: rgba(255,255,255,0.60);
-  margin-bottom: 14px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.62);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  margin-bottom: 12px;
+}
+.pattern-controls .stSelectbox,
+.pattern-controls .stRadio{
+  margin-bottom: 0 !important;
 }
 .pattern-note{
   font-size: 0.78rem;
   color: var(--muted);
-  margin-top: 4px;
+  margin-top: 2px;
+  line-height: 1.3;
 }
-.pattern-summary{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:8px;
-  margin-top:10px;
-}
-.pattern-summary-card{
-  border: 1px solid rgba(16,32,26,0.08);
-  border-radius: 14px;
-  padding: 10px 10px;
-  background: rgba(255,255,255,0.60);
-}
-.pattern-summary-card span{
-  display:block;
-  font-size:0.72rem;
-  font-weight:800;
-  color: rgba(16,32,26,0.62);
-  margin-bottom:2px;
-}
-.pattern-summary-card strong{
-  font-size:1.02rem;
-  font-weight:900;
-  color: var(--augusta-green-dark);
-}
-@media (max-width: 768px){
-  .pattern-summary{ grid-template-columns: 1fr; }
+.pattern-tab-wrap{
+  margin-top: 2px;
 }
 
 /* --- Tabs --- */
@@ -481,6 +463,7 @@ st.markdown(
       <div class="badge">CHS: {chs_today} mph</div>
       <div class="badge">Offset: {offset:+.0f} yd</div>
       <div class="badge">Preset: {preset}</div>
+    </div>
     """,
     unsafe_allow_html=True
 )
@@ -700,18 +683,18 @@ with tab_pattern:
     pattern_options = [x[0] for x in pattern_labels]
 
     if not pattern_options:
-        st.info("No modeled clubs available for shot patterns.")
+        st.info("No Modeled Clubs Available For Shot Patterns.")
     else:
-        default_pattern_idx = 0
         if "shot_pattern_selected" not in st.session_state:
             st.session_state.shot_pattern_selected = pattern_options[0]
 
         if st.session_state.shot_pattern_selected not in pattern_options:
             st.session_state.shot_pattern_selected = pattern_options[0]
 
+        st.markdown('<div class="pattern-tab-wrap">', unsafe_allow_html=True)
         st.markdown('<div class="pattern-controls">', unsafe_allow_html=True)
 
-        c1, c2 = st.columns([1.0, 1.0], vertical_alignment="bottom")
+        c1, c2 = st.columns([1.0, 1.0], vertical_alignment="center")
         with c1:
             selected_label = st.selectbox(
                 "Club",
@@ -721,7 +704,7 @@ with tab_pattern:
             )
         with c2:
             shape = st.radio(
-                "Shot shape",
+                "Shot Shape",
                 ["Straight", "Fade", "Draw"],
                 horizontal=True,
                 key="shot_pattern_shape_tab",
@@ -731,13 +714,14 @@ with tab_pattern:
 
         if carry is None or total is None:
             st.markdown(
-                '<div class="pattern-note">Shot pattern is unavailable because this club does not currently have a modeled yardage.</div>',
+                '<div class="pattern-note">Shot Pattern Is Unavailable Because This Club Does Not Currently Have A Modeled Yardage.</div>',
                 unsafe_allow_html=True
             )
             st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown(
-                f'<div class="pattern-note">{selected_label} • modeled from current yardage settings</div>',
+                f'<div class="pattern-note">{selected_label} • Modeled From Current Yardage Settings</div>',
                 unsafe_allow_html=True
             )
             st.markdown('</div>', unsafe_allow_html=True)
@@ -749,6 +733,8 @@ with tab_pattern:
                 height=560,
                 scrolling=False,
             )
+
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------
 # Debug / Validation tab (FULL CATALOG)
