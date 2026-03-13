@@ -5,15 +5,10 @@ import yaml
 from src.catalog import build_full_catalog
 from src.estimates import (
     Anchor, anchors_by_label,
-    estimate_club_speed, estimate_carry_from_speed,
+    estimate_club_speed, estimate_carry,
     responsiveness_exponent, scaled_carry, rollout_for, category_of
 )
-
-from src.estimates import (
-    Anchor, anchors_by_label,
-    estimate_club_speed, estimate_carry, estimate_carry_from_speed,
-    responsiveness_exponent, scaled_carry, rollout_for, category_of
-)
+from src.shot_pattern import simulate_shot_pattern, render_shot_pattern_svg
 
 # ---------------------------
 # Page config (MUST be first Streamlit call)
@@ -267,10 +262,10 @@ div[data-testid="stTabs"] button:hover{
 div[data-testid="stTabs"] button[aria-selected="true"]{
   background: rgba(0,103,71,0.08) !important;
   color: #004c35 !important;
-  border-bottom: 3px solid #d4af37 !important;  /* gold underline */
+  border-bottom: 3px solid #d4af37 !important;
 }
 div[data-testid="stTabs"] button[aria-selected="false"]{
-  opacity: 1 !important; /* prevent “faded out” look */
+  opacity: 1 !important;
 }
 
 /* Sticky ONLY on larger screens (mobile Safari can break scroll with big tables) */
@@ -286,6 +281,77 @@ div[data-testid="stTabs"] button[aria-selected="false"]{
 }
 
 .ycard.wedge { padding: 10px 12px; }
+
+/* Shot pattern panel */
+.pattern-shell{
+  margin-top: 8px;
+  padding: 14px 14px 12px 14px;
+  border: 1px solid rgba(16,32,26,0.10);
+  border-left: 6px solid var(--azalea-pink);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.74);
+  backdrop-filter: blur(5px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+}
+.pattern-meta{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:10px;
+  flex-wrap:wrap;
+}
+.pattern-title{
+  font-size:1.02rem;
+  font-weight:900;
+  color: var(--ink);
+}
+.pattern-sub{
+  margin-top:2px;
+  font-size:0.80rem;
+  color: var(--muted);
+}
+.pattern-chip{
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(16,32,26,0.10);
+  background: rgba(255,255,255,0.70);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: rgba(16,32,26,0.78);
+}
+.pattern-svg{
+  display:block;
+  width:100%;
+  margin-top:4px;
+}
+.pattern-stats{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.pattern-stat{
+  border: 1px solid rgba(16,32,26,0.08);
+  border-radius: 14px;
+  padding: 10px 10px;
+  background: rgba(255,255,255,0.60);
+}
+.pattern-stat span{
+  display:block;
+  font-size:0.72rem;
+  font-weight:800;
+  color: rgba(16,32,26,0.62);
+  margin-bottom:2px;
+}
+.pattern-stat strong{
+  font-size:1.02rem;
+  font-weight:900;
+  color: var(--augusta-green-dark);
+}
+@media (max-width: 768px){
+  .pattern-stats{ grid-template-columns: 1fr; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -320,7 +386,7 @@ div[data-testid="stTabs"] button[aria-selected="true"]{
   border-color: transparent !important;
   color: #004c35 !important;
   font-weight: 800 !important;
-  border-bottom: 3px solid #d4af37 !important; /* gold underline */
+  border-bottom: 3px solid #d4af37 !important;
 }
 
 div[data-testid="stTabs"] button[aria-selected="false"]{
@@ -330,7 +396,6 @@ div[data-testid="stTabs"] button[aria-selected="false"]{
 }
 </style>
 """, unsafe_allow_html=True)
-
 
 # ---------------------------
 # Config loading
@@ -347,11 +412,10 @@ cfg = load_cfg()
 # ---------------------------
 # Loft helpers
 # ---------------------------
-lofts_cfg = cfg.get("lofts_deg", {})  # e.g., {"7i": 32, "3W": 15, ...}
+lofts_cfg = cfg.get("lofts_deg", {})
 
 def loft_text_for(label: str) -> str | None:
     """Return a pretty loft string for non-wedge clubs, like '32°' or '10.5°'."""
-    # Wedges already include loft in their label like "PW (46°)"
     if category_of(label) == "wedge":
         return None
 
@@ -364,7 +428,6 @@ def loft_text_for(label: str) -> str | None:
     except Exception:
         return None
 
-    # show 10.5° style if needed, otherwise integer like 32°
     if abs(f - round(f)) < 1e-9:
         return f"{int(round(f))}°"
     return f"{f:.1f}°"
@@ -447,7 +510,6 @@ with st.expander("Adjust Yardages", expanded=False):
         preset = st.selectbox("Preset", preset_names, index=preset_index)
         bag_default = presets.get(preset, default_bag)
 
-# If the expander hasn't run yet on first render, ensure defaults exist
 if "chs_today" not in locals():
     chs_today = 105
 if "offset" not in locals():
@@ -468,8 +530,7 @@ with st.expander("Select Clubs", expanded=False):
 if not bag:
     bag = bag_default
 
-# Badges up top (always visible) — render once (after bag exists)
-bag_badge = ", ".join(bag) if bag else "—"
+# Badges up top (always visible)
 st.markdown(
     f"""
     <div class="badges">
@@ -482,13 +543,54 @@ st.markdown(
 st.divider()
 
 # ---------------------------
-# Tabs (add Debug as 3rd tab)
+# Tabs
 # ---------------------------
 tab_clubs, tab_wedges, tab_debug = st.tabs(["Clubs", "Wedges", "Debug"])
 
 # Precompute driver carry for bar scaling
 driver_carry, _ = compute_today("Driver", chs_today, offset)
 max_carry = float(driver_carry) if driver_carry else 1.0
+
+# ---------------------------
+# Shot pattern state + helpers
+# ---------------------------
+if "shot_pattern_label" not in st.session_state:
+    st.session_state.shot_pattern_label = None
+if "shot_pattern_shape" not in st.session_state:
+    st.session_state.shot_pattern_shape = "Straight"
+
+def select_shot_pattern(label: str):
+    st.session_state.shot_pattern_label = label
+
+def render_shot_pattern_panel(section_labels: list[str]):
+    selected = st.session_state.get("shot_pattern_label")
+    if not selected or selected not in section_labels:
+        return
+
+    carry, total = compute_today(selected, chs_today, offset)
+    if carry is None or total is None:
+        st.info(f"Shot pattern is unavailable for {selected} because this club does not have a modeled yardage yet.")
+        return
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    st.markdown("#### Shot Pattern")
+
+    top_l, top_r = st.columns([1.0, 0.36], vertical_alignment="center")
+    with top_l:
+        shape = st.radio(
+            "Shot shape",
+            ["Straight", "Fade", "Draw"],
+            key=f"shape_{selected}",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+    with top_r:
+        if st.button("Clear", key=f"clear_pattern_{selected}", use_container_width=True):
+            st.session_state.shot_pattern_label = None
+            st.rerun()
+
+    pattern = simulate_shot_pattern(selected, carry, total, shape=shape, n=220, seed=11)
+    st.markdown(render_shot_pattern_svg(selected, shape, carry, total, pattern), unsafe_allow_html=True)
 
 def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None):
     fill_pct = clamp01(fill_pct)
@@ -523,18 +625,15 @@ with tab_clubs:
 
     clubs_only = [x for x in bag if category_of(x) not in ("wedge", "putter")]
 
-    # Build once: (label, carry, total, sort_carry)
     club_vals = []
     for label in clubs_only:
         carry, total = compute_today(label, chs_today, offset)
-        sort_carry = carry if carry is not None else -1e9  # no-model goes bottom
+        sort_carry = carry if carry is not None else -1e9
         club_vals.append((label, carry, total, sort_carry))
 
-    # Sort by carry desc
     club_vals.sort(key=lambda x: x[3], reverse=True)
     clubs_sorted = [x[0] for x in club_vals]
 
-    # Gap to next club in sorted list (skip no-models)
     gap_map = {}
     for i, (label, carry, total, _) in enumerate(club_vals):
         if carry is None:
@@ -550,7 +649,6 @@ with tab_clubs:
             gap = carry - nxt_carry
             gap_map[label] = f"Gap to next: +{gap:.0f} yd"
 
-    # Render two-up
     for i in range(0, len(clubs_sorted), 2):
         left, right = st.columns(2, gap="small")
         for col, label in zip([left, right], clubs_sorted[i:i+2]):
@@ -566,6 +664,15 @@ with tab_clubs:
 
             with col:
                 render_card(label, shown, sub, fill, gap_txt)
+                st.button(
+                    f"Open {label} pattern",
+                    key=f"club_pattern_{label}",
+                    on_click=select_shot_pattern,
+                    args=(label,),
+                    use_container_width=True,
+                )
+
+    render_shot_pattern_panel(clubs_sorted)
 
 with tab_wedges:
     st.markdown(
@@ -578,12 +685,10 @@ with tab_wedges:
     if not wedge_labels:
         wedge_labels = ["PW (46°)", "GW (50°)", "SW (56°)", "LW (60°)"]
 
-    # Remove 100% tile: show only partials (Choke, 75, 50, 25)
     scheme = ["Choke-down", "75%", "50%", "25%"]
     pct_map = {"25%": 0.40, "50%": 0.60, "75%": 0.80}
     lbl_map = {"Choke-down": "Choke"}
 
-    # Non-linear "feel" boost (smaller exponent => longer partials vs linear)
     PARTIAL_K = {
         "75%": 0.92,
         "50%": 0.85,
@@ -596,12 +701,11 @@ with tab_wedges:
             if k == "Choke-down":
                 vals[k] = max(0.0, full_carry - choke_sub)
             else:
-                pct = float(pct_map[k])                 # your “feel map”
-                exp = float(PARTIAL_K.get(k, 0.85))     # non-linear boost
+                pct = float(pct_map[k])
+                exp = float(PARTIAL_K.get(k, 0.85))
                 vals[k] = full_carry * (pct ** exp)
         return vals
 
-    # Sort wedges by modeled full carry (desc)
     wedge_vals = []
     for w in wedge_labels:
         carry_full, total_full = compute_today(w, chs_today, offset)
@@ -611,7 +715,6 @@ with tab_wedges:
     wedge_vals.sort(key=lambda x: x[3], reverse=True)
     wedge_labels_sorted = [x[0] for x in wedge_vals]
 
-    # Gap to next wedge (based on full carry)
     wedge_gap_map = {}
     for i, (label, carry_full, total_full, _) in enumerate(wedge_vals):
         if carry_full is None:
@@ -634,7 +737,6 @@ with tab_wedges:
             shown = "—"
             sub = "No model"
 
-            # 4-wide grid (no 100% tile)
             cells = []
             for k in scheme:
                 k2 = lbl_map.get(k, k)
@@ -653,7 +755,6 @@ with tab_wedges:
                 k2 = lbl_map.get(k, k)
                 v = float(vals[k])
 
-                # mini-bar relative to FULL carry (header)
                 pct = clamp01(v / carry_full) if carry_full else 0.0
                 cells.append(
                     f'<div class="wcell"><div class="wlab">{k2}</div><div class="wval">{v:.0f}</div>'
@@ -661,10 +762,7 @@ with tab_wedges:
                 )
             grid_html = f'<div class="wgrid wgrid4">{"".join(cells)}</div>'
 
-        # full-carry bar uses max_carry scaling
         fill = (carry_full / max_carry) if (carry_full is not None and max_carry) else 0.0
-
-        # Always reserve the gap row height (prevents last tile being shorter)
         gap_safe = gap_text if gap_text else "&nbsp;"
 
         st.markdown(
@@ -683,12 +781,20 @@ with tab_wedges:
             unsafe_allow_html=True
         )
 
-    # Render two-up
     for i in range(0, len(wedge_labels_sorted), 2):
         left, right = st.columns(2, gap="small")
         for col, label in zip([left, right], wedge_labels_sorted[i:i+2]):
             with col:
                 render_wedge_card(label, gap_text=wedge_gap_map.get(label))
+                st.button(
+                    f"Open {label} pattern",
+                    key=f"wedge_pattern_{label}",
+                    on_click=select_shot_pattern,
+                    args=(label,),
+                    use_container_width=True,
+                )
+
+    render_shot_pattern_panel(wedge_labels_sorted)
 
 # ---------------------------
 # Debug / Validation tab (FULL CATALOG)
@@ -735,7 +841,6 @@ with tab_debug:
                 return "utility"
             return "iron"
 
-        # 1) FULL catalog table (carry/total/rollout + flags)
         st.markdown("### Modeled yardages (Full catalog)")
 
         rows = []
@@ -795,7 +900,6 @@ with tab_debug:
         rows.sort(key=lambda r: (r["carry"] is None, -(r["carry"] or -1e9)))
         st.dataframe(rows, use_container_width=True, hide_index=True, height=380)
 
-        # 2) Gapping checks
         st.markdown("### Gapping checks (sorted by carry)")
 
         modeled = [r for r in rows if r["carry"] is not None]
@@ -830,7 +934,6 @@ with tab_debug:
         gaps_to_show = gaps if show_all_gaps else [g for g in gaps if g["flags"]]
         st.dataframe(gaps_to_show, use_container_width=True, hide_index=True, height=360)
 
-        # 3) Wedge partial checks
         st.markdown("### Wedge partial validation")
 
         scheme = ["100%", "Choke-down", "75%", "50%", "25%"]
@@ -883,7 +986,6 @@ with tab_debug:
         wedge_rows.sort(key=lambda r: (r["full_carry"] is None, -(r["full_carry"] or -1e9)))
         st.dataframe(wedge_rows, use_container_width=True, hide_index=True, height=380)
 
-        # 4) Curve/response checks at multiple CHS points
         st.markdown("### Response check (multi-CHS sanity)")
 
         chs_points = st.multiselect(
