@@ -327,7 +327,7 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     club_label = escape(label)
 
     return f"""
-<div style="width:100%; background: rgba(255,255,255,0.62); border:1px solid rgba(16,32,26,0.08); border-radius:24px; padding:18px 18px 14px 18px; box-sizing:border-box;">
+<div style="width:100%; background: rgba(255,255,255,0.62); border:1px solid rgba(16,32,26,0.08); border-radius:24px; padding:14px 14px 12px 14px; box-sizing:border-box;">
   <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
     <div>
       <div style="font-size:23px; line-height:1.12; font-weight:900; color:#10201A;">{club_label}</div>
