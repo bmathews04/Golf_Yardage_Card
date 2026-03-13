@@ -49,7 +49,7 @@ h1 { margin-top: 0.0rem !important; margin-bottom: 0.15rem !important; }
 """, unsafe_allow_html=True)
 
 # ---------------------------
-# Augusta / Masters-inspired theme (CSS) + Pro visuals
+# Augusta / Masters-inspired theme (CSS) + widget visibility fixes
 # ---------------------------
 st.markdown("""
 <style>
@@ -87,8 +87,71 @@ h1 { margin-bottom: 0.2rem; color: var(--ink); }
 /* expander */
 details summary { font-size: 0.95rem; color: var(--augusta-green); }
 
-/* input labels */
-label, .stMarkdown { color: var(--ink); }
+/* generic text */
+label, .stMarkdown, p, span, div { color: inherit; }
+
+/* Strong widget text/label visibility */
+div[data-testid="stSelectbox"] label,
+div[data-testid="stMultiSelect"] label,
+div[data-testid="stRadio"] label,
+div[data-testid="stNumberInput"] label,
+div[data-testid="stSlider"] label,
+div[data-testid="stExpander"] summary,
+div[data-testid="stExpanderDetails"] label,
+div[data-testid="stMarkdownContainer"] {
+  color: #10201A !important;
+  opacity: 1 !important;
+}
+
+/* Radio option text visibility */
+div[data-testid="stRadio"] p,
+div[data-testid="stRadio"] span,
+div[role="radiogroup"] p,
+div[role="radiogroup"] span {
+  color: #10201A !important;
+  opacity: 1 !important;
+}
+
+/* Select / multiselect text visibility */
+div[data-baseweb="select"] *,
+div[data-baseweb="select"] input,
+div[data-baseweb="select"] span,
+div[data-baseweb="select"] div {
+  color: #10201A !important;
+  opacity: 1 !important;
+}
+
+/* Keep multiselect tags readable */
+div[data-baseweb="tag"] *,
+div[data-baseweb="tag"] span {
+  color: white !important;
+}
+
+/* Inputs readability */
+div[data-testid="stNumberInput"] input,
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextArea"] textarea {
+  color: #10201A !important;
+}
+
+/* Mobile-specific widget background cleanup */
+@media (max-width: 768px){
+  div[data-baseweb="select"] > div,
+  div[data-testid="stNumberInput"] input,
+  div[data-testid="stTextInput"] input,
+  div[data-testid="stTextArea"] textarea {
+    background: rgba(255,255,255,0.82) !important;
+    color: #10201A !important;
+  }
+
+  div[data-testid="stRadio"] p,
+  div[data-testid="stRadio"] span,
+  div[role="radiogroup"] p,
+  div[role="radiogroup"] span {
+    color: #10201A !important;
+    -webkit-text-fill-color: #10201A !important;
+  }
+}
 
 /* divider */
 hr { border-color: var(--line) !important; }
@@ -103,7 +166,7 @@ hr { border-color: var(--line) !important; }
   box-shadow: none;
 }
 
-/* a subtle gold underline on headers */
+/* subtle gold underline on headers */
 .section-underline{
   height: 2px;
   width: 52px;
@@ -256,22 +319,11 @@ hr { border-color: var(--line) !important; }
 .pattern-panel{
   margin-top: 4px;
 }
-.pattern-controls-note{
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.3;
-  margin-top: -4px;
-  margin-bottom: 8px;
-}
 .pattern-chart-wrap{
   margin-top: 4px;
 }
 
-/* tighten streamlit widget spacing inside shot pattern tab */
-.pattern-panel div[data-testid="stSelectbox"] > label,
-.pattern-panel div[data-testid="stRadio"] > label{
-  font-weight: 700;
-}
+/* tighten widget spacing in shot pattern tab */
 .pattern-panel div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stSelectbox"]),
 .pattern-panel div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]){
   margin-bottom: 0 !important;
