@@ -7,12 +7,18 @@ from typing import Dict, List, Tuple
 
 from src.estimates import category_of
 
-
 Point = Tuple[float, float]  # (x_left_right_yd, y_carry_yd)
+
+
+def _title_case_shape(shape: str) -> str:
+    return (shape or "Straight").strip().title()
 
 
 def _shape_bias(shape: str, carry: float, category: str) -> float:
     shape = (shape or "Straight").lower()
+
+    # Lateral center bias by category.
+    # Draw = left bias (negative x), Fade = right bias (positive x)
     scale = {
         "wood": 0.020,
         "hybrid": 0.018,
@@ -28,7 +34,30 @@ def _shape_bias(shape: str, carry: float, category: str) -> float:
     return 0.0
 
 
-def pattern_defaults(label: str, carry: float) -> Dict[str, float]:
+def _shape_angle_deg(shape: str, category: str) -> float:
+    """
+    Use a golf-intuitive rendered angle instead of letting covariance fully decide.
+    Positive angle = fade feel (left-to-right)
+    Negative angle = draw feel (right-to-left)
+    """
+    shape = (shape or "Straight").lower()
+
+    base = {
+        "wood": 22.0,
+        "hybrid": 18.0,
+        "utility": 16.0,
+        "iron": 13.0,
+        "wedge": 10.0,
+    }.get(category, 12.0)
+
+    if shape == "fade":
+        return base
+    if shape == "draw":
+        return -base
+    return 0.0
+
+
+def pattern_defaults(label: str, carry: float) -> Dict[str, float | str]:
     category = category_of(label)
 
     cfg = {
@@ -60,7 +89,7 @@ def simulate_shot_pattern(
     seed: int = 7,
 ) -> Dict[str, object]:
     defaults = pattern_defaults(label, carry)
-    category = defaults["category"]
+    category = str(defaults["category"])
     rng = random.Random(seed)
 
     shape_bias = _shape_bias(shape, carry, category)
@@ -69,10 +98,14 @@ def simulate_shot_pattern(
     points: List[Point] = []
     totals: List[Point] = []
 
+    start_std = float(defaults["start_std"])
+    curve_std = float(defaults["curve_std"])
+    distance_std = float(defaults["distance_std"])
+
     for _ in range(n):
-        y = max(0.0, rng.gauss(carry, defaults["distance_std"]))
-        start_x = rng.gauss(0.0, defaults["start_std"])
-        curve_x = rng.gauss(shape_bias, defaults["curve_std"])
+        y = max(0.0, rng.gauss(carry, distance_std))
+        start_x = rng.gauss(0.0, start_std)
+        curve_x = rng.gauss(shape_bias, curve_std)
         x = start_x + curve_x
 
         rollout_noise = rng.gauss(0.0, max(0.3, rollout * 0.12))
@@ -84,11 +117,12 @@ def simulate_shot_pattern(
 
     return {
         "label": label,
-        "shape": shape,
+        "shape": _title_case_shape(shape),
         "carry_center": carry,
         "total_center": total,
         "carry_points": points,
         "total_points": totals,
+        "category": category,
     }
 
 
@@ -124,60 +158,70 @@ def summarize_pattern(points: List[Point]) -> Dict[str, float | str]:
     depth_80 = p90_y - p10_y
 
     if mean_x > 2.0:
-        miss = "Slight right bias"
+        bias = "Right Bias"
     elif mean_x < -2.0:
-        miss = "Slight left bias"
+        bias = "Left Bias"
     else:
-        miss = "Centered pattern"
+        bias = "Centered"
 
     return {
         "mean_x": mean_x,
         "mean_y": mean_y,
         "width_80": width_80,
         "depth_80": depth_80,
-        "miss_note": miss,
+        "bias_note": bias,
     }
 
 
-def _covariance(points: List[Point]) -> Tuple[float, float, float, float, float]:
+def _rendered_ellipse_from_points(
+    points: List[Point],
+    shape: str,
+    category: str,
+    n_std_x: float,
+    n_std_y: float,
+) -> Tuple[float, float, float, float, float]:
+    """
+    Use actual simulated center/spread, but guide the rendered angle by shot shape.
+    This keeps the visual golf-intuitive.
+    """
     xs = [p[0] for p in points]
     ys = [p[1] for p in points]
+
     mx = _mean(xs)
     my = _mean(ys)
-    n = max(1, len(points) - 1)
-    var_x = sum((x - mx) ** 2 for x in xs) / n
-    var_y = sum((y - my) ** 2 for y in ys) / n
-    cov_xy = sum((x - mx) * (y - my) for x, y in points) / n
-    return mx, my, var_x, var_y, cov_xy
 
+    p10_x, p90_x = _quantile(xs, 0.10), _quantile(xs, 0.90)
+    p10_y, p90_y = _quantile(ys, 0.10), _quantile(ys, 0.90)
 
-def _ellipse_from_points(points: List[Point], n_std: float) -> Tuple[float, float, float, float, float]:
-    mx, my, var_x, var_y, cov_xy = _covariance(points)
+    width_80 = max(1.0, p90_x - p10_x)
+    depth_80 = max(1.0, p90_y - p10_y)
 
-    term = math.sqrt(max(0.0, ((var_x - var_y) / 2.0) ** 2 + cov_xy ** 2))
-    lam1 = max(1e-6, (var_x + var_y) / 2.0 + term)
-    lam2 = max(1e-6, (var_x + var_y) / 2.0 - term)
-    angle = 0.5 * math.atan2(2.0 * cov_xy, var_x - var_y)
+    # Turn 80% span into ellipse radii.
+    rx = max(1.0, (width_80 / 2.0) * n_std_x)
+    ry = max(1.0, (depth_80 / 2.0) * n_std_y)
 
-    rx = n_std * math.sqrt(lam1)
-    ry = n_std * math.sqrt(lam2)
-    return mx, my, rx, ry, math.degrees(angle)
+    # Shape-guided tilt
+    angle = _shape_angle_deg(shape, category)
+
+    return mx, my, rx, ry, angle
 
 
 def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, pattern: Dict[str, object]) -> str:
     carry_points: List[Point] = pattern["carry_points"]  # type: ignore[index]
     total_points: List[Point] = pattern["total_points"]  # type: ignore[index]
+    category = str(pattern.get("category", category_of(label)))
+    shape_title = _title_case_shape(str(pattern.get("shape", shape)))
     stats = summarize_pattern(carry_points)
 
     all_x = [p[0] for p in carry_points + total_points]
     all_y = [p[1] for p in carry_points + total_points]
 
-    x_extent = max(12.0, max(abs(min(all_x)), abs(max(all_x))) * 1.35)
-    y_min = max(0.0, min(all_y) - 14)
-    y_max = max(total + 12, max(all_y) + 12)
+    x_extent = max(12.0, max(abs(min(all_x)), abs(max(all_x))) * 1.55)
+    y_min = max(0.0, min(all_y) - 18)
+    y_max = max(total + 18, max(all_y) + 18)
 
-    W, H = 760, 420
-    ml, mr, mt, mb = 50, 28, 26, 48
+    W, H = 900, 500
+    ml, mr, mt, mb = 58, 34, 26, 44
     pw, ph = W - ml - mr, H - mt - mb
 
     def sx(x: float) -> float:
@@ -186,8 +230,8 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     def sy(y: float) -> float:
         return H - mb - ((y - y_min) / (y_max - y_min)) * ph
 
-    outer = _ellipse_from_points(carry_points, 1.65)
-    inner = _ellipse_from_points(carry_points, 0.95)
+    outer = _rendered_ellipse_from_points(carry_points, shape_title, category, 1.18, 1.18)
+    inner = _rendered_ellipse_from_points(carry_points, shape_title, category, 0.64, 0.64)
 
     def ellipse_svg(e: Tuple[float, float, float, float, float], fill: str, opacity: float) -> str:
         cx, cy, rx, ry, ang = e
@@ -201,77 +245,92 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
         )
 
     dots = []
-    for x, y in carry_points[:140]:
+    for x, y in carry_points[:150]:
         dots.append(
-            f'<circle cx="{sx(x):.2f}" cy="{sy(y):.2f}" r="2.4" fill="#006747" opacity="0.12" />'
+            f'<circle cx="{sx(x):.2f}" cy="{sy(y):.2f}" r="2.3" fill="#0B8A61" opacity="0.11" />'
         )
 
-    guide_levels = [carry - 15, carry, total]
+    guide_levels = []
+    if carry - 15 > y_min:
+        guide_levels.append((carry - 15, ""))
+    guide_levels.append((carry, f"Carry {carry:.0f}"))
+    if total > carry + 1:
+        guide_levels.append((total, f"Total {total:.0f}"))
+
     guides = []
-    for idx, gy in enumerate(guide_levels):
-        if gy < y_min or gy > y_max:
-            continue
-        label_txt = "Carry" if idx == 1 else ("Total" if idx == 2 else "")
+    for gy, label_txt in guide_levels:
         guides.append(
             f'<line x1="{ml}" y1="{sy(gy):.2f}" x2="{W-mr}" y2="{sy(gy):.2f}" '
-            f'stroke="#10201a" stroke-opacity="0.10" stroke-dasharray="5 7" />'
+            f'stroke="#10201A" stroke-opacity="0.09" stroke-dasharray="5 7" />'
         )
         if label_txt:
             guides.append(
-                f'<text x="{W-mr-2}" y="{sy(gy)-6:.2f}" text-anchor="end" fill="#10201a" fill-opacity="0.55" '
-                f'font-size="12" font-weight="700">{label_txt} {gy:.0f}</text>'
+                f'<text x="{W-mr-1}" y="{sy(gy)-6:.2f}" text-anchor="end" fill="#10201A" fill-opacity="0.52" '
+                f'font-size="13" font-weight="700">{escape(label_txt)}</text>'
             )
 
     target_x = sx(0)
     center_x = sx(float(stats["mean_x"]))
     center_y = sy(float(stats["mean_y"]))
 
-    shape_label = escape(shape)
+    bias_note = escape(str(stats["bias_note"]))
     club_label = escape(label)
-    miss_note = escape(str(stats["miss_note"]))
+    shape_label = escape(shape_title)
 
     return f"""
-<div class="pattern-shell">
-  <div class="pattern-meta">
+<div style="width:100%; background: rgba(255,255,255,0.62); border:1px solid rgba(16,32,26,0.08); border-radius:24px; padding:18px 18px 14px 18px; box-sizing:border-box;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
     <div>
-      <div class="pattern-title">{club_label} Shot Pattern</div>
-      <div class="pattern-sub">{shape_label} • Monte Carlo visual using the app's modeled yardage</div>
+      <div style="font-size:24px; line-height:1.15; font-weight:900; color:#10201A;">{club_label}</div>
+      <div style="margin-top:4px; font-size:13px; line-height:1.2; color:rgba(16,32,26,0.62); font-weight:700;">{shape_label} Pattern</div>
     </div>
-    <div class="pattern-chip">Carry {carry:.0f} • Total {total:.0f}</div>
+    <div style="padding:6px 12px; border-radius:999px; border:1px solid rgba(16,32,26,0.10); background:rgba(255,255,255,0.70); font-size:13px; font-weight:800; color:rgba(16,32,26,0.78);">
+      Carry {carry:.0f} • Total {total:.0f}
+    </div>
   </div>
 
-  <svg viewBox="0 0 {W} {H}" width="100%" class="pattern-svg" aria-label="{club_label} shot pattern">
+  <svg viewBox="0 0 {W} {H}" width="100%" style="display:block; width:100%; border-radius:20px; background:rgba(255,255,255,0.42);" aria-label="{club_label} Shot Pattern">
     <defs>
-      <linearGradient id="carryGlow" x1="0" x2="0" y1="0" y2="1">
-        <stop offset="0%" stop-color="#0d8a61" stop-opacity="0.28" />
-        <stop offset="100%" stop-color="#006747" stop-opacity="0.08" />
+      <linearGradient id="outerGlow" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#10A874" stop-opacity="0.24" />
+        <stop offset="100%" stop-color="#006747" stop-opacity="0.10" />
       </linearGradient>
-      <linearGradient id="carryInner" x1="0" x2="0" y1="0" y2="1">
-        <stop offset="0%" stop-color="#0d8a61" stop-opacity="0.42" />
+      <linearGradient id="innerGlow" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#0E9B6B" stop-opacity="0.42" />
         <stop offset="100%" stop-color="#006747" stop-opacity="0.18" />
       </linearGradient>
     </defs>
 
-    <rect x="0" y="0" width="{W}" height="{H}" rx="24" fill="rgba(255,255,255,0.35)" />
+    <rect x="0" y="0" width="{W}" height="{H}" rx="22" fill="rgba(255,255,255,0.34)" />
     {''.join(guides)}
-    <line x1="{target_x:.2f}" y1="{mt}" x2="{target_x:.2f}" y2="{H-mb}" stroke="#d4af37" stroke-width="2.2" stroke-opacity="0.95" />
-    <line x1="{center_x:.2f}" y1="{mt+24}" x2="{center_x:.2f}" y2="{H-mb}" stroke="#006747" stroke-width="1.8" stroke-opacity="0.28" stroke-dasharray="6 7" />
 
-    {ellipse_svg(outer, 'url(#carryGlow)', 1.0)}
-    {ellipse_svg(inner, 'url(#carryInner)', 1.0)}
+    <line x1="{target_x:.2f}" y1="{mt}" x2="{target_x:.2f}" y2="{H-mb}" stroke="#D4AF37" stroke-width="2.4" stroke-opacity="0.96" />
+    <line x1="{center_x:.2f}" y1="{mt+18}" x2="{center_x:.2f}" y2="{H-mb}" stroke="#0B8A61" stroke-width="1.6" stroke-opacity="0.22" stroke-dasharray="6 7" />
+
+    {ellipse_svg(outer, 'url(#outerGlow)', 1.0)}
+    {ellipse_svg(inner, 'url(#innerGlow)', 1.0)}
     {''.join(dots)}
 
-    <circle cx="{center_x:.2f}" cy="{center_y:.2f}" r="6.5" fill="#006747" fill-opacity="0.95" />
-    <circle cx="{target_x:.2f}" cy="{sy(carry):.2f}" r="4.2" fill="#d4af37" fill-opacity="0.95" />
+    <circle cx="{center_x:.2f}" cy="{center_y:.2f}" r="7.2" fill="#006747" fill-opacity="0.96" />
+    <circle cx="{target_x:.2f}" cy="{sy(carry):.2f}" r="4.8" fill="#D4AF37" fill-opacity="0.96" />
 
-    <text x="{target_x+8:.2f}" y="{mt+16}" fill="#10201a" fill-opacity="0.72" font-size="12" font-weight="800">Target line</text>
-    <text x="{center_x+10:.2f}" y="{center_y-10:.2f}" fill="#10201a" fill-opacity="0.72" font-size="12" font-weight="800">Mean finish</text>
+    <text x="{target_x+10:.2f}" y="{mt+16:.2f}" fill="#10201A" fill-opacity="0.66" font-size="13" font-weight="800">Target Line</text>
+    <text x="{center_x+10:.2f}" y="{center_y-12:.2f}" fill="#10201A" fill-opacity="0.66" font-size="13" font-weight="800">Mean Finish</text>
   </svg>
 
-  <div class="pattern-stats">
-    <div class="pattern-stat"><span>80% width</span><strong>{float(stats['width_80']):.0f} yd</strong></div>
-    <div class="pattern-stat"><span>80% depth</span><strong>{float(stats['depth_80']):.0f} yd</strong></div>
-    <div class="pattern-stat"><span>Tendency</span><strong>{miss_note}</strong></div>
+  <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:12px;">
+    <div style="border:1px solid rgba(16,32,26,0.08); border-radius:14px; padding:10px 10px; background:rgba(255,255,255,0.60);">
+      <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.60); margin-bottom:3px;">80% Width</div>
+      <div style="font-size:20px; font-weight:900; color:#004C35;">{float(stats['width_80']):.0f} Yd</div>
+    </div>
+    <div style="border:1px solid rgba(16,32,26,0.08); border-radius:14px; padding:10px 10px; background:rgba(255,255,255,0.60);">
+      <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.60); margin-bottom:3px;">80% Depth</div>
+      <div style="font-size:20px; font-weight:900; color:#004C35;">{float(stats['depth_80']):.0f} Yd</div>
+    </div>
+    <div style="border:1px solid rgba(16,32,26,0.08); border-radius:14px; padding:10px 10px; background:rgba(255,255,255,0.60);">
+      <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.60); margin-bottom:3px;">Bias</div>
+      <div style="font-size:20px; font-weight:900; color:#004C35;">{bias_note}</div>
+    </div>
   </div>
 </div>
 """
