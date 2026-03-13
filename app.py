@@ -252,27 +252,29 @@ hr { border-color: var(--line) !important; }
 
 .ycard.wedge { padding: 10px 12px; }
 
-/* Shot pattern controls */
-.pattern-controls{
-  padding: 14px 16px 12px 16px;
-  border: 1px solid rgba(16,32,26,0.08);
-  border-radius: 18px;
-  background: rgba(255,255,255,0.62);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
-  margin-bottom: 12px;
+/* Shot Pattern tab layout */
+.pattern-panel{
+  margin-top: 4px;
 }
-.pattern-controls .stSelectbox,
-.pattern-controls .stRadio{
-  margin-bottom: 0 !important;
-}
-.pattern-note{
+.pattern-controls-note{
   font-size: 0.78rem;
   color: var(--muted);
-  margin-top: 2px;
   line-height: 1.3;
+  margin-top: -4px;
+  margin-bottom: 8px;
 }
-.pattern-tab-wrap{
-  margin-top: 2px;
+.pattern-chart-wrap{
+  margin-top: 4px;
+}
+
+/* tighten streamlit widget spacing inside shot pattern tab */
+.pattern-panel div[data-testid="stSelectbox"] > label,
+.pattern-panel div[data-testid="stRadio"] > label{
+  font-weight: 700;
+}
+.pattern-panel div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stSelectbox"]),
+.pattern-panel div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]){
+  margin-bottom: 0 !important;
 }
 
 /* --- Tabs --- */
@@ -683,7 +685,7 @@ with tab_pattern:
     pattern_options = [x[0] for x in pattern_labels]
 
     if not pattern_options:
-        st.info("No Modeled Clubs Available For Shot Patterns.")
+        st.info("No modeled clubs available for shot patterns.")
     else:
         if "shot_pattern_selected" not in st.session_state:
             st.session_state.shot_pattern_selected = pattern_options[0]
@@ -691,10 +693,9 @@ with tab_pattern:
         if st.session_state.shot_pattern_selected not in pattern_options:
             st.session_state.shot_pattern_selected = pattern_options[0]
 
-        st.markdown('<div class="pattern-tab-wrap">', unsafe_allow_html=True)
-        st.markdown('<div class="pattern-controls">', unsafe_allow_html=True)
+        st.markdown('<div class="pattern-panel">', unsafe_allow_html=True)
 
-        c1, c2 = st.columns([1.0, 1.0], vertical_alignment="center")
+        c1, c2 = st.columns([1.0, 1.0], vertical_alignment="bottom")
         with c1:
             selected_label = st.selectbox(
                 "Club",
@@ -714,27 +715,26 @@ with tab_pattern:
 
         if carry is None or total is None:
             st.markdown(
-                '<div class="pattern-note">Shot Pattern Is Unavailable Because This Club Does Not Currently Have A Modeled Yardage.</div>',
+                '<div class="pattern-controls-note">Shot pattern is unavailable because this club does not currently have a modeled yardage.</div>',
                 unsafe_allow_html=True
             )
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown(
-                f'<div class="pattern-note">{selected_label} • Modeled From Current Yardage Settings</div>',
+                f'<div class="pattern-controls-note">{selected_label} • Modeled From Current Yardage Settings</div>',
                 unsafe_allow_html=True
             )
-            st.markdown('</div>', unsafe_allow_html=True)
 
             pattern = simulate_shot_pattern(selected_label, carry, total, shape=shape, n=220, seed=11)
 
+            st.markdown('<div class="pattern-chart-wrap">', unsafe_allow_html=True)
             components.html(
                 render_shot_pattern_svg(selected_label, shape, carry, total, pattern),
                 height=560,
                 scrolling=False,
             )
-
             st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------
 # Debug / Validation tab (FULL CATALOG)
