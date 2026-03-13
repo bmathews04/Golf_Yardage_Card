@@ -249,12 +249,12 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     all_y = [p[1] for p in carry_points + total_points]
 
     # Tighter framing so the pattern fills the card better
-    x_extent = max(10.0, max(abs(min(all_x)), abs(max(all_x))) * 1.32)
-    y_min = max(0.0, min(all_y) - 10)
-    y_max = max(total + 10, max(all_y) + 10)
+    x_extent = max(8.0, max(abs(min(all_x)), abs(max(all_x))) * 1.18)
+    y_min = max(0.0, min(all_y) - 6)
+    y_max = max(total + 6, max(all_y) + 6)
 
-    W, H = 900, 450
-    ml, mr, mt, mb = 52, 30, 18, 34
+    W, H = 900, 520
+    ml, mr, mt, mb = 40, 22, 12, 20
     pw, ph = W - ml - mr, H - mt - mb
 
     def sx(x: float) -> float:
