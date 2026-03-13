@@ -248,13 +248,26 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     all_x = [p[0] for p in carry_points + total_points]
     all_y = [p[1] for p in carry_points + total_points]
 
-    # Tighter framing so the pattern fills the card better
-    x_extent = max(8.0, max(abs(min(all_x)), abs(max(all_x))) * 1.18)
-    y_min = max(0.0, min(all_y) - 6)
-    y_max = max(total + 6, max(all_y) + 6)
+    # Category-aware tighter zoom so the pattern fills more of the frame.
+    raw_x = max(abs(min(all_x)), abs(max(all_x)))
+    raw_y_min = min(all_y)
+    raw_y_max = max(all_y)
 
-    W, H = 900, 520
-    ml, mr, mt, mb = 40, 22, 12, 20
+    if category == "wedge":
+        x_extent = max(3.6, raw_x * 0.82)
+        y_pad = 1.4
+    elif category in ("iron", "utility", "hybrid"):
+        x_extent = max(4.8, raw_x * 0.90)
+        y_pad = 2.0
+    else:
+        x_extent = max(5.8, raw_x * 0.96)
+        y_pad = 2.6
+
+    y_min = max(0.0, raw_y_min - y_pad)
+    y_max = max(total + y_pad, raw_y_max + y_pad)
+
+    W, H = 900, 560
+    ml, mr, mt, mb = 18, 12, 6, 8
     pw, ph = W - ml - mr, H - mt - mb
 
     def sx(x: float) -> float:
@@ -264,8 +277,8 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
         return H - mb - ((y - y_min) / (y_max - y_min)) * ph
 
     # Slightly larger zones so the visual reads faster
-    outer = _rendered_ellipse_from_points(carry_points, shape_title, category, 1.30, 1.26)
-    inner = _rendered_ellipse_from_points(carry_points, shape_title, category, 0.74, 0.72)
+    outer = _rendered_ellipse_from_points(carry_points, shape_title, category, 1.34, 1.28)
+    inner = _rendered_ellipse_from_points(carry_points, shape_title, category, 0.78, 0.74)
 
     outer_cx, outer_cy, outer_rx, outer_ry, outer_angle = outer
 
@@ -281,11 +294,11 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
         )
 
     # subtle directional cone
-    cone_len = max(18.0, outer_cy - y_min - 4.0)
+    cone_len = max(18.0, outer_cy - y_min - 3.0)
     cone_width = max(outer_rx * 1.10, float(stats["width_80"]) * 0.75)
     cone_pts = _cone_polygon(
         apex_x=0.0,
-        apex_y=y_min + 1.5,
+        apex_y=y_min + 0.9,
         center_x=outer_cx,
         center_y=outer_cy,
         angle_deg=outer_angle,
@@ -297,12 +310,12 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     dots = []
     for x, y in carry_points[:150]:
         dots.append(
-            f'<circle cx="{sx(x):.2f}" cy="{sy(y):.2f}" r="2.2" fill="#0B8A61" opacity="0.10" />'
+            f'<circle cx="{sx(x):.2f}" cy="{sy(y):.2f}" r="2.3" fill="#0B8A61" opacity="0.10" />'
         )
 
     guide_levels = []
-    if carry - 12 > y_min:
-        guide_levels.append((carry - 12, ""))
+    if carry - 10 > y_min:
+        guide_levels.append((carry - 10, ""))
     guide_levels.append((carry, f"Carry {carry:.0f}"))
     if total > carry + 1:
         guide_levels.append((total, f"Total {total:.0f}"))
@@ -311,11 +324,11 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     for gy, label_txt in guide_levels:
         guides.append(
             f'<line x1="{ml}" y1="{sy(gy):.2f}" x2="{W-mr}" y2="{sy(gy):.2f}" '
-            f'stroke="#10201A" stroke-opacity="0.075" stroke-dasharray="5 8" />'
+            f'stroke="#10201A" stroke-opacity="0.070" stroke-dasharray="5 8" />'
         )
         if label_txt:
             guides.append(
-                f'<text x="{W-mr-2}" y="{sy(gy)-5:.2f}" text-anchor="end" fill="#10201A" fill-opacity="0.42" '
+                f'<text x="{W-mr-2}" y="{sy(gy)-5:.2f}" text-anchor="end" fill="#10201A" fill-opacity="0.40" '
                 f'font-size="12" font-weight="700">{escape(label_txt)}</text>'
             )
 
@@ -327,8 +340,8 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     club_label = escape(label)
 
     return f"""
-<div style="width:100%; background: rgba(255,255,255,0.62); border:1px solid rgba(16,32,26,0.08); border-radius:24px; padding:18px 18px 14px 18px; box-sizing:border-box;">
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
+<div style="width:100%; background: rgba(255,255,255,0.62); border:1px solid rgba(16,32,26,0.08); border-radius:24px; padding:14px 14px 12px 14px; box-sizing:border-box;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
     <div>
       <div style="font-size:23px; line-height:1.12; font-weight:900; color:#10201A;">{club_label}</div>
       <div style="margin-top:4px; font-size:13px; line-height:1.2; color:rgba(16,32,26,0.58); font-weight:800;">{escape(shape_title)} Pattern</div>
@@ -349,9 +362,9 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
         <stop offset="100%" stop-color="#006747" stop-opacity="0.16" />
       </linearGradient>
       <linearGradient id="coneGlow" x1="0" x2="0" y1="1" y2="0">
-        <stop offset="0%" stop-color="#0E9B6B" stop-opacity="0.015" />
-        <stop offset="65%" stop-color="#0E9B6B" stop-opacity="0.032" />
-        <stop offset="100%" stop-color="#0E9B6B" stop-opacity="0.045" />
+        <stop offset="0%" stop-color="#0E9B6B" stop-opacity="0.012" />
+        <stop offset="65%" stop-color="#0E9B6B" stop-opacity="0.028" />
+        <stop offset="100%" stop-color="#0E9B6B" stop-opacity="0.040" />
       </linearGradient>
     </defs>
 
@@ -361,7 +374,7 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     <polygon points="{cone_path}" fill="url(#coneGlow)" />
 
     <line x1="{target_x:.2f}" y1="{mt}" x2="{target_x:.2f}" y2="{H-mb}" stroke="#D4AF37" stroke-width="2.2" stroke-opacity="0.94" />
-    <line x1="{center_x:.2f}" y1="{mt+12}" x2="{center_x:.2f}" y2="{H-mb}" stroke="#0B8A61" stroke-width="1.5" stroke-opacity="0.18" stroke-dasharray="6 7" />
+    <line x1="{center_x:.2f}" y1="{mt+10}" x2="{center_x:.2f}" y2="{H-mb}" stroke="#0B8A61" stroke-width="1.5" stroke-opacity="0.18" stroke-dasharray="6 7" />
 
     {ellipse_svg(outer, 'url(#outerGlow)', 1.0)}
     {ellipse_svg(inner, 'url(#innerGlow)', 1.0)}
@@ -370,11 +383,11 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     <circle cx="{center_x:.2f}" cy="{center_y:.2f}" r="6.6" fill="#006747" fill-opacity="0.96" />
     <circle cx="{target_x:.2f}" cy="{sy(carry):.2f}" r="4.5" fill="#D4AF37" fill-opacity="0.96" />
 
-    <text x="{target_x+9:.2f}" y="{mt+14:.2f}" fill="#10201A" fill-opacity="0.52" font-size="12" font-weight="700">Target Line</text>
-    <text x="{center_x+9:.2f}" y="{center_y-10:.2f}" fill="#10201A" fill-opacity="0.52" font-size="12" font-weight="700">Mean Finish</text>
+    <text x="{target_x+8:.2f}" y="{mt+13:.2f}" fill="#10201A" fill-opacity="0.50" font-size="12" font-weight="700">Target Line</text>
+    <text x="{center_x+8:.2f}" y="{center_y-10:.2f}" fill="#10201A" fill-opacity="0.50" font-size="12" font-weight="700">Mean Finish</text>
   </svg>
 
-  <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:12px;">
+  <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px;">
     <div style="border:1px solid rgba(16,32,26,0.08); border-radius:14px; padding:10px 10px; background:rgba(255,255,255,0.60);">
       <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.58); margin-bottom:3px;">80% Width</div>
       <div style="font-size:20px; font-weight:900; color:#004C35;">{float(stats['width_80']):.0f} Yd</div>
