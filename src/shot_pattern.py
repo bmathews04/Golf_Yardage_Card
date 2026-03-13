@@ -202,6 +202,42 @@ def _rendered_ellipse_from_points(
     return mx, my, rx, ry, angle
 
 
+def _cone_polygon(
+    apex_x: float,
+    apex_y: float,
+    center_x: float,
+    center_y: float,
+    angle_deg: float,
+    length: float,
+    base_width: float,
+) -> List[Tuple[float, float]]:
+    """
+    Build a soft tapered cone polygon in data coordinates.
+    """
+    ang = math.radians(angle_deg)
+    ux = math.sin(ang)
+    uy = math.cos(ang)
+
+    # perpendicular vector
+    px = math.cos(ang)
+    py = -math.sin(ang)
+
+    # make the cone end near the pattern center but slightly behind it
+    end_x = center_x - ux * (length * 0.12)
+    end_y = center_y - uy * (length * 0.12)
+
+    # narrow at origin, wide at end
+    tip_half = max(0.35, base_width * 0.08)
+    base_half = max(1.2, base_width * 0.50)
+
+    tip_l = (apex_x - px * tip_half, apex_y - py * tip_half)
+    tip_r = (apex_x + px * tip_half, apex_y + py * tip_half)
+    base_r = (end_x + px * base_half, end_y + py * base_half)
+    base_l = (end_x - px * base_half, end_y - py * base_half)
+
+    return [tip_l, tip_r, base_r, base_l]
+
+
 def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, pattern: Dict[str, object]) -> str:
     carry_points: List[Point] = pattern["carry_points"]  # type: ignore[index]
     total_points: List[Point] = pattern["total_points"]  # type: ignore[index]
@@ -231,6 +267,8 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     outer = _rendered_ellipse_from_points(carry_points, shape_title, category, 1.30, 1.26)
     inner = _rendered_ellipse_from_points(carry_points, shape_title, category, 0.74, 0.72)
 
+    outer_cx, outer_cy, outer_rx, outer_ry, outer_angle = outer
+
     def ellipse_svg(e: Tuple[float, float, float, float, float], fill: str, opacity: float) -> str:
         cx, cy, rx, ry, ang = e
         px = sx(cx)
@@ -241,6 +279,20 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
             f'<ellipse cx="{px:.2f}" cy="{py:.2f}" rx="{prx:.2f}" ry="{pry:.2f}" '
             f'transform="rotate({-ang:.2f} {px:.2f} {py:.2f})" fill="{fill}" opacity="{opacity:.3f}" />'
         )
+
+    # subtle directional cone
+    cone_len = max(18.0, outer_cy - y_min - 4.0)
+    cone_width = max(outer_rx * 1.10, float(stats["width_80"]) * 0.75)
+    cone_pts = _cone_polygon(
+        apex_x=0.0,
+        apex_y=y_min + 1.5,
+        center_x=outer_cx,
+        center_y=outer_cy,
+        angle_deg=outer_angle,
+        length=cone_len,
+        base_width=cone_width,
+    )
+    cone_path = " ".join(f"{sx(x):.2f},{sy(y):.2f}" for x, y in cone_pts)
 
     dots = []
     for x, y in carry_points[:150]:
@@ -296,10 +348,17 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
         <stop offset="0%" stop-color="#0E9B6B" stop-opacity="0.38" />
         <stop offset="100%" stop-color="#006747" stop-opacity="0.16" />
       </linearGradient>
+      <linearGradient id="coneGlow" x1="0" x2="0" y1="1" y2="0">
+        <stop offset="0%" stop-color="#0E9B6B" stop-opacity="0.015" />
+        <stop offset="65%" stop-color="#0E9B6B" stop-opacity="0.032" />
+        <stop offset="100%" stop-color="#0E9B6B" stop-opacity="0.045" />
+      </linearGradient>
     </defs>
 
     <rect x="0" y="0" width="{W}" height="{H}" rx="22" fill="rgba(255,255,255,0.28)" />
     {''.join(guides)}
+
+    <polygon points="{cone_path}" fill="url(#coneGlow)" />
 
     <line x1="{target_x:.2f}" y1="{mt}" x2="{target_x:.2f}" y2="{H-mb}" stroke="#D4AF37" stroke-width="2.2" stroke-opacity="0.94" />
     <line x1="{center_x:.2f}" y1="{mt+12}" x2="{center_x:.2f}" y2="{H-mb}" stroke="#0B8A61" stroke-width="1.5" stroke-opacity="0.18" stroke-dasharray="6 7" />
