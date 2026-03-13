@@ -714,16 +714,8 @@ with tab_pattern:
         carry, total = compute_today(selected_label, chs_today, offset)
 
         if carry is None or total is None:
-            st.markdown(
-                '<div class="pattern-controls-note">Shot pattern is unavailable because this club does not currently have a modeled yardage.</div>',
-                unsafe_allow_html=True
-            )
+            st.info("Shot pattern is unavailable because this club does not currently have a modeled yardage.")
         else:
-            st.markdown(
-                f'<div class="pattern-controls-note">{selected_label} • Modeled From Current Yardage Settings</div>',
-                unsafe_allow_html=True
-            )
-
             pattern = simulate_shot_pattern(selected_label, carry, total, shape=shape, n=220, seed=11)
 
             st.markdown('<div class="pattern-chart-wrap">', unsafe_allow_html=True)
