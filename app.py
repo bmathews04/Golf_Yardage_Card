@@ -723,7 +723,7 @@ with tab_pattern:
             st.markdown('<div class="pattern-chart-wrap">', unsafe_allow_html=True)
             components.html(
                 render_shot_pattern_svg(selected_label, shape, carry, total, pattern),
-                height=560,
+                height=630,
                 scrolling=False,
             )
             st.markdown('</div>', unsafe_allow_html=True)
