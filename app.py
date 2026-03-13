@@ -695,13 +695,14 @@ with tab_pattern:
 
         st.markdown('<div class="pattern-panel">', unsafe_allow_html=True)
 
-        c1, c2 = st.columns([1.0, 1.0], vertical_alignment="bottom")
+        c1, c2 = st.columns([1.15, 0.85], vertical_alignment="bottom")
         with c1:
             selected_label = st.selectbox(
                 "Club",
                 pattern_options,
                 index=pattern_options.index(st.session_state.shot_pattern_selected),
                 key="shot_pattern_selected",
+                label_visibility="collapsed",
             )
         with c2:
             shape = st.radio(
@@ -709,6 +710,7 @@ with tab_pattern:
                 ["Straight", "Fade", "Draw"],
                 horizontal=True,
                 key="shot_pattern_shape_tab",
+                label_visibility="collapsed",
             )
 
         carry, total = compute_today(selected_label, chs_today, offset)
