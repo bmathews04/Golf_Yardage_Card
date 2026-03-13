@@ -49,7 +49,7 @@ h1 { margin-top: 0.0rem !important; margin-bottom: 0.15rem !important; }
 """, unsafe_allow_html=True)
 
 # ---------------------------
-# Augusta / Masters-inspired theme (CSS) + Pro visuals (badges, bars, gaps)
+# Augusta / Masters-inspired theme (CSS) + Pro visuals
 # ---------------------------
 st.markdown("""
 <style>
@@ -137,7 +137,7 @@ hr { border-color: var(--line) !important; }
   background: rgba(255,255,255,0.75);
   backdrop-filter: blur(4px);
   border-radius: 16px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   box-shadow: 0 1px 0 rgba(0,0,0,0.03);
   position: relative;
   overflow: hidden;
@@ -148,27 +148,12 @@ hr { border-color: var(--line) !important; }
   box-shadow: 0 6px 18px rgba(0,0,0,0.06);
   border-color: rgba(16,32,26,0.18);
 }
-/* subtle “sheen” highlight */
 .ycard:before{
   content:"";
   position:absolute;
   left:0; top:0;
   width:100%; height:40%;
   background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.0));
-  pointer-events:none;
-}
-
-/* selected card state */
-.ycard.selected{
-  border-color: rgba(232,106,163,0.28);
-  box-shadow: 0 8px 24px rgba(232,106,163,0.09);
-}
-.ycard.selected:after{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:16px;
-  box-shadow: inset 0 0 0 1px rgba(232,106,163,0.12);
   pointer-events:none;
 }
 
@@ -205,7 +190,7 @@ hr { border-color: var(--line) !important; }
   filter: saturate(1.05);
 }
 
-/* gap pill (reserve height so last card stays same size) */
+/* gap pill */
 .gapline{
   margin-top: 6px;
   display: flex;
@@ -265,24 +250,75 @@ hr { border-color: var(--line) !important; }
   border-radius: 999px;
 }
 
+.ycard.wedge { padding: 10px 12px; }
+
+/* Shot pattern area */
+.pattern-controls{
+  padding: 12px 14px;
+  border: 1px solid rgba(16,32,26,0.08);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.60);
+  margin-bottom: 14px;
+}
+.pattern-note{
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.pattern-summary{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.pattern-summary-card{
+  border: 1px solid rgba(16,32,26,0.08);
+  border-radius: 14px;
+  padding: 10px 10px;
+  background: rgba(255,255,255,0.60);
+}
+.pattern-summary-card span{
+  display:block;
+  font-size:0.72rem;
+  font-weight:800;
+  color: rgba(16,32,26,0.62);
+  margin-bottom:2px;
+}
+.pattern-summary-card strong{
+  font-size:1.02rem;
+  font-weight:900;
+  color: var(--augusta-green-dark);
+}
+@media (max-width: 768px){
+  .pattern-summary{ grid-template-columns: 1fr; }
+}
+
 /* --- Tabs --- */
 div[data-testid="stTabs"] button{
-  border-radius: 999px !important;
-  padding: 6px 12px !important;
-  transition: background-color 120ms ease, transform 120ms ease;
+  border-radius: 10px !important;
+  padding: 6px 10px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  transition: color 120ms ease, border-color 120ms ease;
 }
 div[data-testid="stTabs"] button:hover{
-  background: rgba(0,103,71,0.06) !important;
+  border-color: rgba(16,32,26,0.10) !important;
+  background: rgba(255,255,255,0.35) !important;
 }
 div[data-testid="stTabs"] button[aria-selected="true"]{
-  background: rgba(0,103,71,0.08) !important;
+  background: transparent !important;
+  border-color: transparent !important;
   color: #004c35 !important;
+  font-weight: 800 !important;
   border-bottom: 3px solid #d4af37 !important;
 }
 div[data-testid="stTabs"] button[aria-selected="false"]{
+  color: rgba(16,32,26,0.75) !important;
+  font-weight: 700 !important;
   opacity: 1 !important;
 }
 
+/* Sticky ONLY on larger screens */
 @media (min-width: 900px){
   div[data-testid="stTabs"]{
     position: sticky;
@@ -293,110 +329,6 @@ div[data-testid="stTabs"] button[aria-selected="false"]{
     padding-top: 4px;
   }
 }
-
-.ycard.wedge { padding: 10px 12px; }
-
-/* Shot pattern panel */
-.pattern-shell{
-  margin-top: 6px;
-  padding: 14px 14px 12px 14px;
-  border: 1px solid rgba(16,32,26,0.10);
-  border-left: 6px solid var(--azalea-pink);
-  border-radius: 18px;
-  background: rgba(255,255,255,0.74);
-  backdrop-filter: blur(5px);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.03);
-}
-.pattern-meta{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:12px;
-  margin-bottom:10px;
-  flex-wrap:wrap;
-}
-.pattern-title{
-  font-size:1.02rem;
-  font-weight:900;
-  color: var(--ink);
-}
-.pattern-sub{
-  margin-top:2px;
-  font-size:0.80rem;
-  color: var(--muted);
-}
-.pattern-chip{
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(16,32,26,0.10);
-  background: rgba(255,255,255,0.70);
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: rgba(16,32,26,0.78);
-}
-.pattern-svg{
-  display:block;
-  width:100%;
-  margin-top:4px;
-}
-.pattern-stats{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:8px;
-  margin-top:10px;
-}
-.pattern-stat{
-  border: 1px solid rgba(16,32,26,0.08);
-  border-radius: 14px;
-  padding: 10px 10px;
-  background: rgba(255,255,255,0.60);
-}
-.pattern-stat span{
-  display:block;
-  font-size:0.72rem;
-  font-weight:800;
-  color: rgba(16,32,26,0.62);
-  margin-bottom:2px;
-}
-.pattern-stat strong{
-  font-size:1.02rem;
-  font-weight:900;
-  color: var(--augusta-green-dark);
-}
-@media (max-width: 768px){
-  .pattern-stats{ grid-template-columns: 1fr; }
-}
-
-/* inline shot pattern wrapper */
-.pattern-inline-shell{
-  margin-top: 0px;
-  margin-bottom: 10px;
-}
-
-/* subtle chevron toggle under cards */
-.pattern-toggle-wrap{
-  display:flex;
-  justify-content:center;
-  margin-top:-2px;
-  margin-bottom:8px;
-}
-
-/* try to style the toggle button cleanly */
-div.stButton > button[kind="tertiary"]{
-  border: none !important;
-  background: transparent !important;
-  color: rgba(16,32,26,0.52) !important;
-  font-size: 1.05rem !important;
-  font-weight: 800 !important;
-  padding: 0.10rem 0.35rem !important;
-  min-height: 1.1rem !important;
-  line-height: 1 !important;
-  box-shadow: none !important;
-}
-div.stButton > button[kind="tertiary"]:hover{
-  color: var(--augusta-green-dark) !important;
-  background: transparent !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -405,38 +337,6 @@ st.markdown("""
 <style>
 .wgrid.wgrid4{
   grid-template-columns: repeat(4, 1fr) !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-/* Tabs: clean Augusta (no filled pill) */
-div[data-testid="stTabs"] button{
-  border-radius: 10px !important;
-  padding: 6px 10px !important;
-  background: transparent !important;
-  border: 1px solid transparent !important;
-  transition: color 120ms ease, border-color 120ms ease;
-}
-
-div[data-testid="stTabs"] button:hover{
-  border-color: rgba(16,32,26,0.10) !important;
-  background: rgba(255,255,255,0.35) !important;
-}
-
-div[data-testid="stTabs"] button[aria-selected="true"]{
-  background: transparent !important;
-  border-color: transparent !important;
-  color: #004c35 !important;
-  font-weight: 800 !important;
-  border-bottom: 3px solid #d4af37 !important;
-}
-
-div[data-testid="stTabs"] button[aria-selected="false"]{
-  color: rgba(16,32,26,0.75) !important;
-  font-weight: 700 !important;
-  opacity: 1 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -540,7 +440,7 @@ st.markdown(
 )
 
 # ---------------------------
-# Controls (collapsed into expander)
+# Controls
 # ---------------------------
 with st.expander("Adjust Yardages", expanded=False):
     chs_today = st.slider("Driver CHS (mph)", 90, 135, 105, 1)
@@ -589,55 +489,13 @@ st.divider()
 # ---------------------------
 # Tabs
 # ---------------------------
-tab_clubs, tab_wedges, tab_debug = st.tabs(["Clubs", "Wedges", "Debug"])
+tab_clubs, tab_wedges, tab_pattern, tab_debug = st.tabs(["Clubs", "Wedges", "Shot Pattern", "Debug"])
 
 # Precompute driver carry for bar scaling
 driver_carry, _ = compute_today("Driver", chs_today, offset)
 max_carry = float(driver_carry) if driver_carry else 1.0
 
-# ---------------------------
-# Shot pattern state + helpers
-# ---------------------------
-if "shot_pattern_label" not in st.session_state:
-    st.session_state.shot_pattern_label = None
-
-def toggle_shot_pattern(label: str):
-    current = st.session_state.get("shot_pattern_label")
-    st.session_state.shot_pattern_label = None if current == label else label
-
-def render_inline_shot_pattern(label: str):
-    carry, total = compute_today(label, chs_today, offset)
-    if carry is None or total is None:
-        st.info(f"Shot pattern is unavailable for {label} because this club does not have a modeled yardage yet.")
-        return
-
-    st.markdown('<div class="pattern-inline-shell">', unsafe_allow_html=True)
-
-    top_l, top_r = st.columns([1.0, 0.28], vertical_alignment="center")
-    with top_l:
-        shape = st.radio(
-            f"Shot shape for {label}",
-            ["Straight", "Fade", "Draw"],
-            key=f"shape_{label}",
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-    with top_r:
-        if st.button("Clear", key=f"clear_pattern_{label}", use_container_width=True):
-            st.session_state.shot_pattern_label = None
-            st.rerun()
-
-    pattern = simulate_shot_pattern(label, carry, total, shape=shape, n=220, seed=11)
-
-    components.html(
-        render_shot_pattern_svg(label, shape, carry, total, pattern),
-        height=560,
-        scrolling=False,
-    )
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None, selected: bool = False):
+def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str | None = None):
     fill_pct = clamp01(fill_pct)
 
     loft_txt = loft_text_for(label)
@@ -648,11 +506,10 @@ def render_card(label: str, shown: str, sub: str, fill_pct: float, gap_text: str
     )
 
     gap_safe = gap_text if gap_text else "&nbsp;"
-    selected_cls = " selected" if selected else ""
 
     st.markdown(
         f"""
-        <div class="ycard{selected_cls}">
+        <div class="ycard">
           <div class="yrow">
             <div class="yclub">{label_html}</div>
             <div class="yvals">{shown}</div>
@@ -709,23 +566,7 @@ with tab_clubs:
                 gap_txt = gap_map.get(label)
 
             with col:
-                is_open = st.session_state.get("shot_pattern_label") == label
-                chevron = "⌃" if is_open else "⌄"
-
-                render_card(label, shown, sub, fill, gap_txt, selected=is_open)
-
-                st.markdown('<div class="pattern-toggle-wrap">', unsafe_allow_html=True)
-                st.button(
-                    chevron,
-                    key=f"club_pattern_toggle_{label}",
-                    on_click=toggle_shot_pattern,
-                    args=(label,),
-                    type="tertiary",
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                if is_open:
-                    render_inline_shot_pattern(label)
+                render_card(label, shown, sub, fill, gap_txt)
 
 with tab_wedges:
     st.markdown(
@@ -783,7 +624,7 @@ with tab_wedges:
             gap = carry_full - nxt_carry
             wedge_gap_map[label] = f"Gap to next: +{gap:.0f} yd"
 
-    def render_wedge_card(label: str, gap_text: str | None = None, selected: bool = False):
+    def render_wedge_card(label: str, gap_text: str | None = None):
         carry_full, total_full = compute_today(label, chs_today, offset)
 
         if carry_full is None:
@@ -817,11 +658,10 @@ with tab_wedges:
 
         fill = (carry_full / max_carry) if (carry_full is not None and max_carry) else 0.0
         gap_safe = gap_text if gap_text else "&nbsp;"
-        selected_cls = " selected" if selected else ""
 
         st.markdown(
             f"""
-            <div class="ycard wedge{selected_cls}">
+            <div class="ycard wedge">
               <div class="yrow">
                 <div class="yclub">{label}</div>
                 <div class="yvals">{shown}</div>
@@ -839,23 +679,76 @@ with tab_wedges:
         left, right = st.columns(2, gap="small")
         for col, label in zip([left, right], wedge_labels_sorted[i:i+2]):
             with col:
-                is_open = st.session_state.get("shot_pattern_label") == label
-                chevron = "⌃" if is_open else "⌄"
+                render_wedge_card(label, gap_text=wedge_gap_map.get(label))
 
-                render_wedge_card(label, gap_text=wedge_gap_map.get(label), selected=is_open)
+with tab_pattern:
+    st.markdown(
+        '<div class="section-title"><div class="section-dot"></div><h3 style="margin:0;">Shot Pattern</h3></div>',
+        unsafe_allow_html=True
+    )
+    st.markdown('<div class="section-underline"></div>', unsafe_allow_html=True)
 
-                st.markdown('<div class="pattern-toggle-wrap">', unsafe_allow_html=True)
-                st.button(
-                    chevron,
-                    key=f"wedge_pattern_toggle_{label}",
-                    on_click=toggle_shot_pattern,
-                    args=(label,),
-                    type="tertiary",
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
+    pattern_labels = []
+    for label in bag:
+        if category_of(label) == "putter":
+            continue
+        carry, total = compute_today(label, chs_today, offset)
+        sort_carry = carry if carry is not None else -1e9
+        pattern_labels.append((label, carry, total, sort_carry))
 
-                if is_open:
-                    render_inline_shot_pattern(label)
+    pattern_labels.sort(key=lambda x: x[3], reverse=True)
+    pattern_options = [x[0] for x in pattern_labels]
+
+    if not pattern_options:
+        st.info("No modeled clubs available for shot patterns.")
+    else:
+        default_pattern_idx = 0
+        if "shot_pattern_selected" not in st.session_state:
+            st.session_state.shot_pattern_selected = pattern_options[0]
+
+        if st.session_state.shot_pattern_selected not in pattern_options:
+            st.session_state.shot_pattern_selected = pattern_options[0]
+
+        st.markdown('<div class="pattern-controls">', unsafe_allow_html=True)
+
+        c1, c2 = st.columns([1.0, 1.0], vertical_alignment="bottom")
+        with c1:
+            selected_label = st.selectbox(
+                "Club",
+                pattern_options,
+                index=pattern_options.index(st.session_state.shot_pattern_selected),
+                key="shot_pattern_selected",
+            )
+        with c2:
+            shape = st.radio(
+                "Shot shape",
+                ["Straight", "Fade", "Draw"],
+                horizontal=True,
+                key="shot_pattern_shape_tab",
+            )
+
+        carry, total = compute_today(selected_label, chs_today, offset)
+
+        if carry is None or total is None:
+            st.markdown(
+                '<div class="pattern-note">Shot pattern is unavailable because this club does not currently have a modeled yardage.</div>',
+                unsafe_allow_html=True
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(
+                f'<div class="pattern-note">{selected_label} • modeled from current yardage settings</div>',
+                unsafe_allow_html=True
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            pattern = simulate_shot_pattern(selected_label, carry, total, shape=shape, n=220, seed=11)
+
+            components.html(
+                render_shot_pattern_svg(selected_label, shape, carry, total, pattern),
+                height=560,
+                scrolling=False,
+            )
 
 # ---------------------------
 # Debug / Validation tab (FULL CATALOG)
