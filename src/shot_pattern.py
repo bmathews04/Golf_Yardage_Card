@@ -17,7 +17,6 @@ def _title_case_shape(shape: str) -> str:
 def _shape_bias(shape: str, carry: float, category: str) -> float:
     shape = (shape or "Straight").lower()
 
-    # Lateral center bias by category.
     # Draw = left bias (negative x), Fade = right bias (positive x)
     scale = {
         "wood": 0.020,
@@ -36,9 +35,9 @@ def _shape_bias(shape: str, carry: float, category: str) -> float:
 
 def _shape_angle_deg(shape: str, category: str) -> float:
     """
-    Use a golf-intuitive rendered angle instead of letting covariance fully decide.
-    Positive angle = fade feel (left-to-right)
-    Negative angle = draw feel (right-to-left)
+    Golf-intuitive rendered angle.
+    Positive = fade feel (left-to-right)
+    Negative = draw feel (right-to-left)
     """
     shape = (shape or "Straight").lower()
 
@@ -182,7 +181,6 @@ def _rendered_ellipse_from_points(
 ) -> Tuple[float, float, float, float, float]:
     """
     Use actual simulated center/spread, but guide the rendered angle by shot shape.
-    This keeps the visual golf-intuitive.
     """
     xs = [p[0] for p in points]
     ys = [p[1] for p in points]
@@ -196,11 +194,9 @@ def _rendered_ellipse_from_points(
     width_80 = max(1.0, p90_x - p10_x)
     depth_80 = max(1.0, p90_y - p10_y)
 
-    # Turn 80% span into ellipse radii.
     rx = max(1.0, (width_80 / 2.0) * n_std_x)
     ry = max(1.0, (depth_80 / 2.0) * n_std_y)
 
-    # Shape-guided tilt
     angle = _shape_angle_deg(shape, category)
 
     return mx, my, rx, ry, angle
@@ -216,12 +212,13 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     all_x = [p[0] for p in carry_points + total_points]
     all_y = [p[1] for p in carry_points + total_points]
 
-    x_extent = max(12.0, max(abs(min(all_x)), abs(max(all_x))) * 1.55)
-    y_min = max(0.0, min(all_y) - 18)
-    y_max = max(total + 18, max(all_y) + 18)
+    # Tighter framing so the pattern fills the card better
+    x_extent = max(10.0, max(abs(min(all_x)), abs(max(all_x))) * 1.32)
+    y_min = max(0.0, min(all_y) - 10)
+    y_max = max(total + 10, max(all_y) + 10)
 
-    W, H = 900, 500
-    ml, mr, mt, mb = 58, 34, 26, 44
+    W, H = 900, 450
+    ml, mr, mt, mb = 52, 30, 18, 34
     pw, ph = W - ml - mr, H - mt - mb
 
     def sx(x: float) -> float:
@@ -230,8 +227,9 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     def sy(y: float) -> float:
         return H - mb - ((y - y_min) / (y_max - y_min)) * ph
 
-    outer = _rendered_ellipse_from_points(carry_points, shape_title, category, 1.18, 1.18)
-    inner = _rendered_ellipse_from_points(carry_points, shape_title, category, 0.64, 0.64)
+    # Slightly larger zones so the visual reads faster
+    outer = _rendered_ellipse_from_points(carry_points, shape_title, category, 1.30, 1.26)
+    inner = _rendered_ellipse_from_points(carry_points, shape_title, category, 0.74, 0.72)
 
     def ellipse_svg(e: Tuple[float, float, float, float, float], fill: str, opacity: float) -> str:
         cx, cy, rx, ry, ang = e
@@ -247,12 +245,12 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     dots = []
     for x, y in carry_points[:150]:
         dots.append(
-            f'<circle cx="{sx(x):.2f}" cy="{sy(y):.2f}" r="2.3" fill="#0B8A61" opacity="0.11" />'
+            f'<circle cx="{sx(x):.2f}" cy="{sy(y):.2f}" r="2.2" fill="#0B8A61" opacity="0.10" />'
         )
 
     guide_levels = []
-    if carry - 15 > y_min:
-        guide_levels.append((carry - 15, ""))
+    if carry - 12 > y_min:
+        guide_levels.append((carry - 12, ""))
     guide_levels.append((carry, f"Carry {carry:.0f}"))
     if total > carry + 1:
         guide_levels.append((total, f"Total {total:.0f}"))
@@ -261,12 +259,12 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
     for gy, label_txt in guide_levels:
         guides.append(
             f'<line x1="{ml}" y1="{sy(gy):.2f}" x2="{W-mr}" y2="{sy(gy):.2f}" '
-            f'stroke="#10201A" stroke-opacity="0.09" stroke-dasharray="5 7" />'
+            f'stroke="#10201A" stroke-opacity="0.075" stroke-dasharray="5 8" />'
         )
         if label_txt:
             guides.append(
-                f'<text x="{W-mr-1}" y="{sy(gy)-6:.2f}" text-anchor="end" fill="#10201A" fill-opacity="0.52" '
-                f'font-size="13" font-weight="700">{escape(label_txt)}</text>'
+                f'<text x="{W-mr-2}" y="{sy(gy)-5:.2f}" text-anchor="end" fill="#10201A" fill-opacity="0.42" '
+                f'font-size="12" font-weight="700">{escape(label_txt)}</text>'
             )
 
     target_x = sx(0)
@@ -275,60 +273,59 @@ def render_shot_pattern_svg(label: str, shape: str, carry: float, total: float, 
 
     bias_note = escape(str(stats["bias_note"]))
     club_label = escape(label)
-    shape_label = escape(shape_title)
 
     return f"""
 <div style="width:100%; background: rgba(255,255,255,0.62); border:1px solid rgba(16,32,26,0.08); border-radius:24px; padding:18px 18px 14px 18px; box-sizing:border-box;">
   <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
     <div>
-      <div style="font-size:24px; line-height:1.15; font-weight:900; color:#10201A;">{club_label}</div>
-      <div style="margin-top:4px; font-size:13px; line-height:1.2; color:rgba(16,32,26,0.62); font-weight:700;">{shape_label} Pattern</div>
+      <div style="font-size:23px; line-height:1.12; font-weight:900; color:#10201A;">{club_label}</div>
+      <div style="margin-top:4px; font-size:13px; line-height:1.2; color:rgba(16,32,26,0.58); font-weight:800;">{escape(shape_title)} Pattern</div>
     </div>
-    <div style="padding:6px 12px; border-radius:999px; border:1px solid rgba(16,32,26,0.10); background:rgba(255,255,255,0.70); font-size:13px; font-weight:800; color:rgba(16,32,26,0.78);">
+    <div style="padding:6px 12px; border-radius:999px; border:1px solid rgba(16,32,26,0.10); background:rgba(255,255,255,0.72); font-size:13px; font-weight:800; color:rgba(16,32,26,0.78);">
       Carry {carry:.0f} • Total {total:.0f}
     </div>
   </div>
 
-  <svg viewBox="0 0 {W} {H}" width="100%" style="display:block; width:100%; border-radius:20px; background:rgba(255,255,255,0.42);" aria-label="{club_label} Shot Pattern">
+  <svg viewBox="0 0 {W} {H}" width="100%" style="display:block; width:100%; border-radius:20px; background:rgba(255,255,255,0.38);" aria-label="{club_label} Shot Pattern">
     <defs>
       <linearGradient id="outerGlow" x1="0" x2="0" y1="0" y2="1">
-        <stop offset="0%" stop-color="#10A874" stop-opacity="0.24" />
-        <stop offset="100%" stop-color="#006747" stop-opacity="0.10" />
+        <stop offset="0%" stop-color="#10A874" stop-opacity="0.22" />
+        <stop offset="100%" stop-color="#006747" stop-opacity="0.09" />
       </linearGradient>
       <linearGradient id="innerGlow" x1="0" x2="0" y1="0" y2="1">
-        <stop offset="0%" stop-color="#0E9B6B" stop-opacity="0.42" />
-        <stop offset="100%" stop-color="#006747" stop-opacity="0.18" />
+        <stop offset="0%" stop-color="#0E9B6B" stop-opacity="0.38" />
+        <stop offset="100%" stop-color="#006747" stop-opacity="0.16" />
       </linearGradient>
     </defs>
 
-    <rect x="0" y="0" width="{W}" height="{H}" rx="22" fill="rgba(255,255,255,0.34)" />
+    <rect x="0" y="0" width="{W}" height="{H}" rx="22" fill="rgba(255,255,255,0.28)" />
     {''.join(guides)}
 
-    <line x1="{target_x:.2f}" y1="{mt}" x2="{target_x:.2f}" y2="{H-mb}" stroke="#D4AF37" stroke-width="2.4" stroke-opacity="0.96" />
-    <line x1="{center_x:.2f}" y1="{mt+18}" x2="{center_x:.2f}" y2="{H-mb}" stroke="#0B8A61" stroke-width="1.6" stroke-opacity="0.22" stroke-dasharray="6 7" />
+    <line x1="{target_x:.2f}" y1="{mt}" x2="{target_x:.2f}" y2="{H-mb}" stroke="#D4AF37" stroke-width="2.2" stroke-opacity="0.94" />
+    <line x1="{center_x:.2f}" y1="{mt+12}" x2="{center_x:.2f}" y2="{H-mb}" stroke="#0B8A61" stroke-width="1.5" stroke-opacity="0.18" stroke-dasharray="6 7" />
 
     {ellipse_svg(outer, 'url(#outerGlow)', 1.0)}
     {ellipse_svg(inner, 'url(#innerGlow)', 1.0)}
     {''.join(dots)}
 
-    <circle cx="{center_x:.2f}" cy="{center_y:.2f}" r="7.2" fill="#006747" fill-opacity="0.96" />
-    <circle cx="{target_x:.2f}" cy="{sy(carry):.2f}" r="4.8" fill="#D4AF37" fill-opacity="0.96" />
+    <circle cx="{center_x:.2f}" cy="{center_y:.2f}" r="6.6" fill="#006747" fill-opacity="0.96" />
+    <circle cx="{target_x:.2f}" cy="{sy(carry):.2f}" r="4.5" fill="#D4AF37" fill-opacity="0.96" />
 
-    <text x="{target_x+10:.2f}" y="{mt+16:.2f}" fill="#10201A" fill-opacity="0.66" font-size="13" font-weight="800">Target Line</text>
-    <text x="{center_x+10:.2f}" y="{center_y-12:.2f}" fill="#10201A" fill-opacity="0.66" font-size="13" font-weight="800">Mean Finish</text>
+    <text x="{target_x+9:.2f}" y="{mt+14:.2f}" fill="#10201A" fill-opacity="0.52" font-size="12" font-weight="700">Target Line</text>
+    <text x="{center_x+9:.2f}" y="{center_y-10:.2f}" fill="#10201A" fill-opacity="0.52" font-size="12" font-weight="700">Mean Finish</text>
   </svg>
 
   <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:12px;">
     <div style="border:1px solid rgba(16,32,26,0.08); border-radius:14px; padding:10px 10px; background:rgba(255,255,255,0.60);">
-      <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.60); margin-bottom:3px;">80% Width</div>
+      <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.58); margin-bottom:3px;">80% Width</div>
       <div style="font-size:20px; font-weight:900; color:#004C35;">{float(stats['width_80']):.0f} Yd</div>
     </div>
     <div style="border:1px solid rgba(16,32,26,0.08); border-radius:14px; padding:10px 10px; background:rgba(255,255,255,0.60);">
-      <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.60); margin-bottom:3px;">80% Depth</div>
+      <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.58); margin-bottom:3px;">80% Depth</div>
       <div style="font-size:20px; font-weight:900; color:#004C35;">{float(stats['depth_80']):.0f} Yd</div>
     </div>
     <div style="border:1px solid rgba(16,32,26,0.08); border-radius:14px; padding:10px 10px; background:rgba(255,255,255,0.60);">
-      <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.60); margin-bottom:3px;">Bias</div>
+      <div style="font-size:12px; font-weight:800; color:rgba(16,32,26,0.58); margin-bottom:3px;">Bias</div>
       <div style="font-size:20px; font-weight:900; color:#004C35;">{bias_note}</div>
     </div>
   </div>
